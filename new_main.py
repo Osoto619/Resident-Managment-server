@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, date
 from tkinter import font
 import sys
 import config
-import keyring
+
 
 API_URL = 'http://127.0.0.1:5000'
 # # Function to load and apply the user's theme
@@ -289,76 +289,73 @@ def create_initial_admin_account_window():
 
 
 
-# def new_user_setup_window(username):
-#     layout = [
-#         [sg.Text(f"Welcome {username}, please set your new password and initials.")],
-#         [sg.Text("New Password:"), sg.InputText(key='new_password', password_char='*')],
-#         [sg.Text("Initials:"), sg.InputText(key='initials')],
-#         [sg.Button("Set Password and Initials"), sg.Button("Cancel")]
-#     ]
+def new_user_setup_window(username):
+    layout = [
+        [sg.Text(f"Welcome {username}, please set your new password.")],
+        [sg.Text("New Password:"), sg.InputText(key='new_password', password_char='*')],
+        [sg.Button("Set Password"), sg.Button("Cancel")]
+    ]
 
-#     window = sg.Window("Password Reset", layout)
+    window = sg.Window("Password Reset", layout)
 
-#     while True:
-#         event, values = window.read()
-#         if event in (sg.WIN_CLOSED, "Cancel"):
-#             break
-#         elif event == "Set Password and Initials":
-#             new_password = values['new_password']
-#             initials = values['initials'].strip().upper()
+    while True:
+        event, values = window.read()
+        if event in (sg.WIN_CLOSED, "Cancel"):
+            break
+        elif event == "Set Password":
+            new_password = values['new_password']
 
-#             # Validate new password and initials
-#             if new_password and initials:
-#                 db_functions.update_user_password_and_initials(username, new_password, initials)
-#                 sg.popup("Password and initials updated successfully.")
-#                 break
-#             else:
-#                 sg.popup("Please enter a new password and initials.", title="Error")
+            # Validate new password and initials
+            if new_password:
+                api_functions.update_password(API_URL, username, new_password)
+                sg.popup("Password updated successfully.")
+                break
+            else:
+                sg.popup("Please enter a new password and initials.", title="Error")
 
-#     window.close()
+    window.close()
 
 
-# def add_user_window():
-#     logged_in_user = config.global_config['logged_in_user']
-#     layout = [
-#         [sg.Text("Add New User")],
-#         [sg.Text("Username:"), sg.InputText(key='username')],
-#         [sg.Text("Temporary Password:"), sg.InputText(key='temp_password', password_char='*')],
-#         [sg.Text("Role:"), sg.Combo(['User', 'Admin'], default_value='User', key='role', readonly=True)],
-#         [sg.Button("Add User"), sg.Button("Cancel")]
-#     ]
+def add_user_window():
+    logged_in_user = config.global_config['logged_in_user']
+    layout = [
+        [sg.Text("Add New User")],
+        [sg.Text("Username:"), sg.InputText(key='username')],
+        [sg.Text("Temporary Password:"), sg.InputText(key='temp_password', password_char='*')],
+        [sg.Text("Role:"), sg.Combo(['User', 'Admin'], default_value='User', key='role', readonly=True)],
+        [sg.Text("Initials:"), sg.InputText(key='initials')],  # Added field for initials
+        [sg.Button("Add User"), sg.Button("Cancel")]
+    ]
 
-#     window = sg.Window("Add User", layout)
+    window = sg.Window("Add User", layout)
 
-#     while True:
-#         event, values = window.read()
-#         if event in (sg.WIN_CLOSED, "Cancel"):
-#             break
-#         elif event == "Add User":
-#             username = values['username']
-#             temp_password = values['temp_password']
-#             role = values['role']
+    while True:
+        event, values = window.read()
+        if event in (sg.WIN_CLOSED, "Cancel"):
+            break
+        elif event == "Add User":
+            username = values['username']
+            temp_password = values['temp_password']
+            role = values['role']
+            initials = values['initials']  # Retrieve the initials from the input field
 
-#             # Validate input (e.g., non-empty, username uniqueness, etc.)
-#             if not username or not temp_password:
-#                 sg.popup("Both username and temporary password are required.", title="Error")
-#                 continue
+            # Validate input (e.g., non-empty, username uniqueness, etc.)
+            if not username or not temp_password or not initials:
+                sg.popup("username, initials and temporary password are required.", title="Error")
+                continue
 
-#             # Check for username uniqueness
-#             if db_functions.is_username_exists(username):
-#                 sg.popup("This username already exists. Please choose another.", title="Error")
-#                 continue
+            # Add the new user
+            try:
+                success = api_functions.create_user(API_URL, username, temp_password, role, True, initials)  # Pass initials to the API function
+                if success:
+                    sg.popup("User added successfully.")
+                    break
+                else:
+                    sg.popup("Failed to add user. Please try again.", title="Error")
+            except Exception as e:
+                sg.popup(f"Error adding user: {e}", title="Error")
 
-#             # Add the new user
-#             try:
-#                 db_functions.create_user(username, temp_password, role, True)  # True for is_temp_password
-#                 db_functions.log_action(logged_in_user, 'User Created', f'new user: {username} created by: {logged_in_user}')
-#                 sg.popup("User added successfully.")
-#                 break
-#             except Exception as e:
-#                 sg.popup(f"Error adding user: {e}", title="Error")
-
-#     window.close()
+    window.close()
 
 # def remove_user_window():
 #     # Fetch usernames for the dropdown
@@ -419,24 +416,22 @@ def login_window():
             username = values['username']
             password = values['password']
             
-            # Attempt to validate login and retrieve token
             
             if api_functions.validate_login(API_URL, username, password):
                 
                 # Log the successful login action
                 config.global_config['logged_in_user'] = username
-                print('logged in')
-                #api_functions.log_action(API_URL, username, "Login", f"{username}")
-            #     if db_functions.needs_password_reset(username):
-            #         window.close()
-            #         new_user_setup_window(username)
-            #         display_welcome_window(db_functions.get_resident_count(),show_login=False)
+                api_functions.log_action(API_URL, username, "Login", f"{username}")
+                if api_functions.needs_password_reset(API_URL, username):
+                  window.close()
+                  new_user_setup_window(username)
+                  display_welcome_window(api_functions.get_resident_count(API_URL),show_login=False)
 
                     
-            #     else:
-            #         # Proceed to main application
-            #         sg.popup("Login Successful!", title="Success")
-            #         break
+                else:
+                    # Proceed to main application
+                    sg.popup("Login Successful!", title="Success")
+                    break
             else:
                 sg.popup("Invalid username or password.", title="Error")
 
@@ -493,13 +488,12 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         create_initial_admin_account_window()
         sys.exit(0)
         
-        
-
     if show_login:
         login_window()
-        pass
+        
 
-    logged_in_user = config.global_config['logged_in_user']    
+    logged_in_user = config.global_config['logged_in_user']
+    is_admin = api_functions.is_admin(API_URL, logged_in_user)   
 
     """ Display a welcome window with the number of residents. """
     image_path = 'ct-logo.png'
@@ -513,8 +507,8 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         sg.Button('Remove User', pad=(6, 3), font=(FONT, 12)), sg.Text('', expand_x=True)],
         [sg.Text('', expand_x=True), sg.Button('View Audit Logs', font=(FONT, 12)), sg.Button('Data Backup Setup', font=(FONT, 12 )), sg.Text('', expand_x=True)]
     ]
-    #admin_panel = sg.Frame('Admin Panel', admin_panel_layout, font=(FONT, 14), visible=db_functions.is_admin(config.global_config['logged_in_user']))
-    admin_panel = sg.Frame('Admin Panel', admin_panel_layout, font=(FONT, 14), visible=True)
+    
+    admin_panel = sg.Frame('Admin Panel', admin_panel_layout, font=(FONT, 14), visible=is_admin)
 
     layout = [
         [sg.Text(f'CareTech Resident Management', font=(FONT, 20),
@@ -533,6 +527,11 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         event, values = window.read()
         if event == sg.WIN_CLOSED:
             break
+        elif event == 'Add User':
+             print('testing add user')
+             window.close()
+             add_user_window()
+             display_welcome_window(api_functions.get_resident_count(API_URL))
         # elif event == 'Add Resident':
         #     window.close()
         #     enter_resident_info()
@@ -558,10 +557,6 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         #     window.close()
         #     enter_resident_edit()
         #     display_welcome_window(db_functions.get_resident_count())
-        # elif event == 'Add User':
-        #     window.close()
-        #     add_user_window()
-        #     display_welcome_window(db_functions.get_resident_count())
         # elif event == 'Remove User':
         #     window.hide
         #     remove_user_window()
@@ -576,11 +571,11 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         #     startup_routine()
         #     window.un_hide()
             
-    #db_functions.log_action(logged_in_user, 'Logout', f'{logged_in_user} logout')
+    #api_functions.log_action(logged_in_user, 'Logout', f'{logged_in_user} logout')
     config.global_config['logged_in_user'] = None
     window.close()
 
 if __name__ == "__main__":
     #startup_routine()
     #display_welcome_window(db_functions.get_resident_count(), show_login=True)
-    display_welcome_window(1, show_login=True)
+    display_welcome_window(api_functions.get_resident_count(API_URL), show_login=True)

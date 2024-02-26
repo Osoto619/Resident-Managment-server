@@ -37,12 +37,20 @@ def initialize_database():
         setting_name TEXT UNIQUE,
         setting_value TEXT)''')
 
-    # Create Resident table
-    c.execute('''CREATE TABLE IF NOT EXISTS residents (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        date_of_birth TEXT,
-        level_of_care TEXT)''')
+    # # Create Resident table
+    # c.execute('''CREATE TABLE IF NOT EXISTS residents (
+    #     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #     name TEXT,
+    #     date_of_birth TEXT,
+    #     level_of_care TEXT)''')
+    # '''
+    #     CREATE TABLE IF NOT EXISTS residents (
+    #         id INT AUTO_INCREMENT PRIMARY KEY,
+    #         name VARCHAR(255),
+    #         date_of_birth DATE,
+    #         level_of_care VARCHAR(255)
+    #     );
+    #     '''
 
     # Create Time Slots table
     c.execute('''CREATE TABLE IF NOT EXISTS time_slots (
