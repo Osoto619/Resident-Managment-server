@@ -92,46 +92,46 @@ FONT_BOLD = 'Arial Bold'
 #     # else:
 #     #     print("No backup needed at this time.")
 
+# ----------------- Resident Management Functions -----------------
 
-# def enter_resident_info():
-#     # Calculate the default date (85 years ago from today)
-#     past = datetime.now() - timedelta(days=85*365)
+def enter_resident_info():
+    # Calculate the default date (85 years ago from today)
+    past = datetime.now() - timedelta(days=85*365)
     
-#     """ Display GUI for entering resident information. """
-#     layout = [
-#     [sg.Text('Please Enter Resident Information', justification='center', expand_x=True, font=(FONT, 18))],
-#     [sg.Text('Name', size=(15, 1), font=(FONT, 12)), sg.InputText(key='Name', size=(20,1), font=(FONT, 12))],
-#     [sg.Text('Date of Birth', size=(15, 1), font=(FONT, 12)), 
-#      sg.InputText(key='Date_of_Birth', size=(20,1), disabled=True, font=(FONT, 12)), 
-#      sg.CalendarButton('Choose Date', target='Date_of_Birth', 
-#                        default_date_m_d_y=(past.month, past.day, past.year), 
-#                        format='%Y-%m-%d', font=(FONT, 12))],
-#     [sg.Text('Level of Care', justification='center', expand_x=True, font=(FONT, 15))],
-#     [sg.Radio('Supervisory Care', "RADIO1", default=True, key='Supervisory_Care', size=(15,1), font=(FONT, 12)), 
-#      sg.Radio('Personal Care', "RADIO1", key='Personal_Care', size=(15,1), font=(FONT, 12)), 
-#      sg.Radio('Directed Care', "RADIO1", key='Directed_Care', size=(15,1), font=(FONT, 12))],
-#     [sg.Text('', expand_x=True), sg.Submit(font=(FONT, 12)), sg.Cancel(font=(FONT, 12)), sg.Text('', expand_x=True)]
-#             ]
+    """ Display GUI for entering resident information. """
+    layout = [
+    [sg.Text('Please Enter Resident Information', justification='center', expand_x=True, font=(FONT, 18))],
+    [sg.Text('Name', size=(15, 1), font=(FONT, 12)), sg.InputText(key='Name', size=(20,1), font=(FONT, 12))],
+    [sg.Text('Date of Birth', size=(15, 1), font=(FONT, 12)), 
+     sg.InputText(key='Date_of_Birth', size=(20,1), disabled=True, font=(FONT, 12)), 
+     sg.CalendarButton('Choose Date', target='Date_of_Birth', 
+                       default_date_m_d_y=(past.month, past.day, past.year), 
+                       format='%Y-%m-%d', font=(FONT, 12))],
+    [sg.Text('Level of Care', justification='center', expand_x=True, font=(FONT, 15))],
+    [sg.Radio('Supervisory Care', "RADIO1", default=True, key='Supervisory_Care', size=(15,1), font=(FONT, 12)), 
+     sg.Radio('Personal Care', "RADIO1", key='Personal_Care', size=(15,1), font=(FONT, 12)), 
+     sg.Radio('Directed Care', "RADIO1", key='Directed_Care', size=(15,1), font=(FONT, 12))],
+    [sg.Text('', expand_x=True), sg.Submit(font=(FONT, 12)), sg.Cancel(font=(FONT, 12)), sg.Text('', expand_x=True)]]
 
+    window = sg.Window('Enter Resident Info', layout)
 
-#     window = sg.Window('Enter Resident Info', layout)
+    while True:
+        event, values = window.read()
+        if event in (None, 'Cancel'):
+            break
+        elif event == 'Submit':
+            name = values['Name'].title()
+             # Determine the selected level of care
+            level_of_care = 'Supervisory Care' if values['Supervisory_Care'] else 'Personal Care' if values['Personal_Care'] else 'Directed Care'
+            api_functions.insert_resident(API_URL, name, values['Date_of_Birth'], level_of_care)
+            #logged_in_user = config.global_config['logged_in_user']
+            # api_functions.log_action(API_URL, logged_in_user, 'Resident Added', f'Resident Added {name}')
+            # logged server side
+            sg.popup('Resident information saved!')
+            window.close()
+            return True
 
-#     while True:
-#         event, values = window.read()
-#         if event in (None, 'Cancel'):
-#             break
-#         elif event == 'Submit':
-#             name = values['Name'].title()
-#              # Determine the selected level of care
-#             level_of_care = 'Supervisory Care' if values['Supervisory_Care'] else 'Personal Care' if values['Personal_Care'] else 'Directed Care'
-#             db_functions.insert_resident(name, values['Date_of_Birth'], level_of_care)
-#             logged_in_user = config.global_config['logged_in_user']
-#             db_functions.log_action(logged_in_user, 'Resident Added', f'Resident Added {name}')
-#             sg.popup('Resident information saved!')
-#             window.close()
-#             return True
-
-#     window.close()
+    window.close()
     
 
 # def enter_resident_removal():
@@ -250,6 +250,7 @@ FONT_BOLD = 'Arial Bold'
 
 #     window.close()
 
+# ----------------- User Management Functions -----------------
 
 def create_initial_admin_account_window():
 
@@ -286,7 +287,6 @@ def create_initial_admin_account_window():
                 sg.popup(f"Error creating admin account: {e}", title="Error")
 
     window.close()
-
 
 
 def new_user_setup_window(username):
@@ -532,23 +532,23 @@ def display_welcome_window(num_of_residents_local, show_login=False):
              window.close()
              add_user_window()
              display_welcome_window(api_functions.get_resident_count(API_URL))
-        # elif event == 'Add Resident':
-        #     window.close()
-        #     enter_resident_info()
-        #     display_welcome_window(db_functions.get_resident_count())
+        elif event == 'Add Resident':
+            window.close()
+            enter_resident_info()
+            display_welcome_window(api_functions.get_resident_count(API_URL))
         # elif event == 'Remove Resident':
         #     window.close()
         #     enter_resident_removal()
         #     display_welcome_window(db_functions.get_resident_count())
-        # elif event == 'Enter Resident Management':
-        #     if db_functions.get_resident_count() == 0:
-        #         sg.popup("Your Facility Has No Residents. Please Select Click Add Resident.", font=(FONT, 12), 
-        #                  title='Error- No Residents')
-        #         continue
-        #     else:
-        #         window.hide()
-        #         resident_management.main()
-        #         window.un_hide()   
+        elif event == 'Enter Resident Management':
+            if num_of_residents_local == 0:
+                sg.popup("Your Facility Has No Residents. Please Select Click Add Resident.", font=(FONT, 12), 
+                         title='Error- No Residents')
+                continue
+            else:
+                window.hide()
+                resident_management.main()
+                window.un_hide()   
         # elif event == 'Change Theme':
         #     window.close()
         #     change_theme_window()

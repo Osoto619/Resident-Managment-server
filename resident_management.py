@@ -1,4 +1,5 @@
 import PySimpleGUI as sg
+import api_functions
 import adl_management
 import emar_management
 import info_management
@@ -6,14 +7,15 @@ import db_functions
 from datetime import datetime
 from adl_chart import show_adl_chart
 from emars_chart import show_emar_chart
-import welcome_screen
+from new_main import API_URL, FONT, FONT_BOLD
 import config
 import pdf
 
 
 def create_tab_layout(resident_name):
     adl_tab_layout = adl_management.get_adl_tab_layout(resident_name)
-    emar_tab_layout = emar_management.get_emar_tab_layout(resident_name)
+    #emar_tab_layout = emar_management.get_emar_tab_layout(resident_name)
+    emar_tab_layout = [[sg.Text('eMAR Placeholder')]]
     # resident_info_layout = [[sg.Button(button_text='Enter Resident Info Window', key='-INFO_WINDOW-')]]
 
     adl_tab = sg.Tab('ADL', adl_tab_layout)
@@ -27,16 +29,16 @@ def create_management_window(resident_names, selected_resident, default_tab_inde
     resident_selector = sg.Combo(resident_names, default_value=selected_resident, key='-RESIDENT-', readonly=True, enable_events=True, font=('Helvetica', 11))
 
     tabs = create_tab_layout(selected_resident)
-    tab_group = sg.TabGroup([tabs], key='-TABGROUP-', font=(welcome_screen.FONT, 11))
+    tab_group = sg.TabGroup([tabs], key='-TABGROUP-', font=('Arial', 11))
 
     current_date = datetime.now().strftime("%m-%d-%y")  # Get today's date
 
     layout = [
-        [sg.Text('CareTech Resident Management', font=(db_functions.get_user_font(), 20), justification='center', expand_x=True, pad=((0, 0),(20,0)))],
-        [sg.Text(text='', expand_x=True), sg.Text(current_date, key='-DATE-', font=(welcome_screen.FONT, 15)), sg.Text('' ,key='-TIME-', font=(welcome_screen.FONT, 15)), sg.Text(text='', expand_x=True)],
-        [sg.Text('Select Resident:', font=(welcome_screen.FONT, 14)), resident_selector],
+        [sg.Text('CareTech Resident Management', font=(FONT, 20), justification='center', expand_x=True, pad=((0, 0),(20,0)))],
+        [sg.Text(text='', expand_x=True), sg.Text(current_date, key='-DATE-', font=(FONT, 15)), sg.Text('' ,key='-TIME-', font=(FONT, 15)), sg.Text(text='', expand_x=True)],
+        [sg.Text('Select Resident:', font=(FONT, 14)), resident_selector],
         [tab_group],
-        [sg.Text('', expand_x=True), sg.Column(layout=[[sg.Button('Next Tab', font=(welcome_screen.FONT, 11)), sg.Button('Previous Tab', font=(welcome_screen.FONT, 11), pad=10)]]), sg.Text('', expand_x=True)]
+        [sg.Text('', expand_x=True), sg.Column(layout=[[sg.Button('Next Tab', font=(FONT, 11)), sg.Button('Previous Tab', font=(FONT, 11), pad=10)]]), sg.Text('', expand_x=True)]
     ]
 
     window = sg.Window('CareTech Resident Management', layout, finalize=True)
@@ -103,12 +105,14 @@ def open_discontinue_medication_window(resident_name):
 
 
 def main():
-    resident_names = db_functions.get_resident_names()
+    resident_names = api_functions.get_resident_names(API_URL)
     selected_resident = resident_names[0]
     current_tab_index = 0  # Initialize the tab index
     logged_in_user = config.global_config['logged_in_user']
-    user_initials = db_functions.get_user_initials(logged_in_user)
+    user_initials = api_functions.get_user_initials(API_URL)
     current_date = datetime.now().strftime('%Y-%m-%d')
+
+   
     
     window = create_management_window(resident_names, selected_resident)
 
@@ -122,12 +126,9 @@ def main():
             window = create_management_window(resident_names, selected_resident)
         elif event == '-ADL_SAVE-':
             adl_data = adl_management.retrieve_adl_data_from_window(window,selected_resident)
-            existing_adl_data = db_functions.fetch_adl_data_for_resident_and_date(selected_resident,current_date)
+            existing_adl_data = api_functions.fetch_adl_data_for_resident(API_URL, selected_resident)
             audit_description = adl_management.generate_adl_audit_description(adl_data, existing_adl_data)
-
-            db_functions.save_adl_data_from_management_window(selected_resident, adl_data)
-            db_functions.log_action(logged_in_user, f'ADL Data Saved Resident: {selected_resident}', audit_description)
-            sg.popup("Data saved successfully!")
+            api_functions.save_adl_data_from_management_window(API_URL, selected_resident, adl_data, audit_description)
         elif event.startswith('-CHECK'): # Checkbox for Scheduled Medications IputText
              
              # Split the event string

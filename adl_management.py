@@ -1,16 +1,18 @@
 import PySimpleGUI as sg
+import api_functions
 from datetime import datetime
 from adl_chart import show_adl_chart
 import welcome_screen
 import db_functions
 import config
+from new_main import API_URL
 
 
 def get_adl_tab_layout(resident_name):
-    existing_data = db_functions.fetch_adl_data_for_resident(resident_name)
-    resident_care_levels = db_functions.get_resident_care_level()
-    is_supervisory_care = resident_care_levels.get(resident_name, '') == 'Supervisory Care'
-    user_initials = db_functions.get_user_initials(config.global_config['logged_in_user'])
+    existing_data = api_functions.fetch_adl_data_for_resident(API_URL, resident_name)
+    resident_care_levels = api_functions.get_resident_care_level(API_URL)
+    is_supervisory_care = any(resident['name'] == resident_name and resident['level_of_care'] == 'Supervisory Care' for resident in resident_care_levels)
+    user_initials = api_functions.get_user_initials(API_URL)
     user_choices = [user_initials, 'S', 'H']  # Add user initials dynamically
 
     # Fields to auto-populate for self-care residents

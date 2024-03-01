@@ -7,14 +7,15 @@ def initialize_database():
     conn = sqlite3.connect('resident_data.db')
     c = conn.cursor()
 
-    # # Create Users Table
-    # c.execute('''CREATE TABLE IF NOT EXISTS users (
-    #     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    #     username TEXT UNIQUE NOT NULL,
-    #     password_hash TEXT NOT NULL,
-    #     role TEXT NOT NULL,
-    #     initials TEXT,
-    #     is_temp_password BOOLEAN DEFAULT 1)''')
+    # Create residents table
+    # CREATE TABLE IF NOT EXISTS users (
+    # user_id INT AUTO_INCREMENT PRIMARY KEY,
+    # username VARCHAR(255) UNIQUE NOT NULL,
+    # password_hash VARCHAR(255) NOT NULL,
+    # user_role VARCHAR(255) NOT NULL,
+    # initials VARCHAR(255),
+    # is_temp_password TINYINT(1) DEFAULT 1
+    # )
 
     # Create table for data backup values
     c.execute('''CREATE TABLE IF NOT EXISTS backup_config (
@@ -23,13 +24,16 @@ def initialize_database():
     backup_frequency TEXT NOT NULL,
     last_backup_date TEXT)''')
 
-    # # Create audit_logs Table
-    # c.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
-    #     log_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    #     username TEXT,
-    #     action TEXT,              #CHANGED TO activity
-    #     description TEXT,
-    #     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')   #CHANGED TO log_time
+    # Create table for audit_logs
+# CREATE TABLE IF NOT EXISTS audit_logs (
+#     log_id INT AUTO_INCREMENT PRIMARY KEY,
+#     username VARCHAR(255),
+#     activity VARCHAR(255),
+#     details TEXT,                   # CHANGED FROM DESCRIPTION TO DETAILS
+#     log_time DATETIME DEFAULT CURRENT_TIMESTAMP
+# )
+
+
 
     # Create table for user settings
     c.execute('''CREATE TABLE IF NOT EXISTS user_settings (
@@ -37,12 +41,7 @@ def initialize_database():
         setting_name TEXT UNIQUE,
         setting_value TEXT)''')
 
-    # # Create Resident table
-    # c.execute('''CREATE TABLE IF NOT EXISTS residents (
-    #     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    #     name TEXT,
-    #     date_of_birth TEXT,
-    #     level_of_care TEXT)''')
+    # Create residents table
     # '''
     #     CREATE TABLE IF NOT EXISTS residents (
     #         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -120,37 +119,39 @@ def initialize_database():
                 FOREIGN KEY(order_id) REFERENCES non_medication_orders(order_id),
                 FOREIGN KEY(resident_id) REFERENCES residents(id))''')
     
-    # Create table for ADL charts
-    c.execute('''CREATE TABLE IF NOT EXISTS adl_chart (
-                chart_id INTEGER PRIMARY KEY,
-                resident_id INTEGER,
-                date TEXT,
-                first_shift_sp TEXT,
-                second_shift_sp TEXT,
-                first_shift_activity1 TEXT,
-                first_shift_activity2 TEXT,
-                first_shift_activity3 TEXT,
-                second_shift_activity4 TEXT,
-                first_shift_bm TEXT,
-                second_shift_bm TEXT,
-                shower TEXT,
-                shampoo TEXT,
-                sponge_bath TEXT,
-                peri_care_am TEXT,
-                peri_care_pm TEXT,
-                oral_care_am TEXT,
-                oral_care_pm TEXT,
-                nail_care TEXT,
-                skin_care TEXT,
-                shave TEXT,
-                breakfast TEXT,
-                lunch TEXT,
-                dinner TEXT,
-                snack_am TEXT,
-                snack_pm TEXT,
-                water_intake TEXT,
-                FOREIGN KEY(resident_id) REFERENCES residents(id),
-                UNIQUE(resident_id, date))''')
+    # Create ADL Chart Table
+#     create table if not exists adl_chart (
+# 	chart_id int auto_increment primary key,
+#     resident_id int,
+#     chart_date date,
+#     first_shift_sp varchar(100),
+#     second_shift_sp varchar(100),
+#     first_shift_activity1 varchar(100),
+#     first_shift_activity2 varchar(100),
+#     first_shift_activity3 varchar(100),
+#     second_shift_activity4 varchar(100),
+#     first_shift_bm varchar(100),
+#     second_shift_bm varchar(100),
+#     shower varchar(100),
+#     shampoo varchar(100),
+#     sponge_bath varchar(100),
+#     peri_care_am varchar(100),
+#     peri_care_pm varchar(100),
+#     oral_care_am varchar(100),
+#     oral_care_pm varchar(100),
+#     nail_care varchar(100),
+#     skin_care varchar(100),
+#     shave varchar(100),
+#     breakfast tinyint,
+#     lunch tinyint,
+#     dinner tinyint,
+#     snack_am tinyint,
+#     snack_pm tinyint,
+#     water_intake tinyint,
+#     foreign key (resident_id) references residents(id),
+#     unique (resident_id, chart_date)
+# )
+# engine=InnoDB;
 
     conn.commit()
     conn.close()

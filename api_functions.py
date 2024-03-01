@@ -1,5 +1,8 @@
 import requests
 import keyring
+import urllib.parse
+import PySimpleGUI as sg
+
 
 # ----------------- users Table ----------------- #
 
@@ -231,13 +234,42 @@ def is_admin(api_url, username):
         return None
 
 
+def get_user_initials(api_url):
+    """
+    Get the initials of the current user by sending a request to the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+
+    Returns:
+        str: The initials of the current user, or an empty string on failure.
+    """
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return ''
+
+    headers = {'Authorization': f'Bearer {token}'}
+    try:
+        response = requests.get(f"{api_url}/get_user_initials", headers=headers)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get('initials', '')
+        else:
+            print("Failed to fetch user initials:", response.json())
+            return ''
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return ''
+
 # ----------------- audit_logs Table ----------------- #
 
-def log_action(api_url, username, activity, description):
+def log_action(api_url, username, activity, details):
     data = {
         "username": username,
         "activity": activity,
-        "description": description
+        "details": details
     }
     response = requests.post(f"{api_url}/log_action", json=data)
     if response.status_code == 200:
@@ -268,3 +300,209 @@ def get_resident_count(api_url):
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")  # For debugging
         return 0
+
+
+def get_resident_care_level(api_url):
+    """
+    Fetch the care level of residents from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+
+    Returns:
+        list: A list of care levels, or an empty list on failure.
+    """
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}'}
+    try:
+        response = requests.get(f"{api_url}/get_resident_care_level", headers=headers)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get('residents', [])
+        else:
+            print("Failed to fetch resident care levels:", response.json())  # For debugging
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")  # For debugging
+        return []
+
+
+def get_resident_names(api_url):
+    """
+    Fetch the names of all residents from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+
+    Returns:
+        list: A list of resident names, or an empty list on failure.
+        
+    """
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}'}
+    try:
+        response = requests.get(f"{api_url}/get_resident_names", headers=headers)
+        if response.status_code == 200:
+            # Assuming the JSON structure includes a "names" key
+            names = response.json().get('names', [])
+            return names
+        else:
+            print("Failed to fetch resident names:", response.json())  # For debugging
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")  # For debugging
+        return []
+
+
+def insert_resident(api_url, name, date_of_birth, level_of_care):
+    """
+    Insert a new resident into the database using the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        name (str): The name of the resident.
+        date_of_birth (str): The date of birth of the resident in 'YYYY-MM-DD' format.
+        level_of_care (str): The level of care required by the resident.
+
+    Returns:
+        bool: True if the resident was inserted successfully, False otherwise.
+    """
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}'}
+    data = {
+        "name": name,
+        "date_of_birth": date_of_birth,
+        "level_of_care": level_of_care
+    }
+    try:
+        response = requests.post(f"{api_url}/insert_resident", json=data, headers=headers)
+        if response.status_code == 201:
+            print("Resident inserted successfully.")
+            return True
+        else:
+            print("Failed to insert resident:", response.json())
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+
+# ----------------- adl_chart Table ----------------- #
+    
+def fetch_adl_data_for_resident(api_url, resident_name):
+    """
+    Fetch ADL data for a specific resident for the current day from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident to fetch data for.
+
+    Returns:
+        dict: ADL data for the resident, or an empty dict on failure.
+    """
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return {}
+
+    headers = {'Authorization': f'Bearer {token}'}
+    encoded_resident_name = urllib.parse.quote(resident_name)  # URL-encode the resident name
+    url = f"{api_url}/fetch_adl_data_for_resident/{encoded_resident_name}"
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            result = response.json()
+            return result
+        else:
+            print("Failed to fetch ADL data:", response.json())
+            return {}
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return {}
+
+
+def fetch_adl_chart_data_for_month(api_url, resident_name, year_month):
+    """
+    Fetch ADL data for a specific resident for a specific month from the Flask API.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return []
+
+    headers = {'Authorization': f'Bearer {token}'}
+    encoded_resident_name = urllib.parse.quote(resident_name)
+    # Updated to send year_month as a query parameter
+    url = f"{api_url}/fetch_adl_chart_data_for_month/{encoded_resident_name}?year_month={year_month}"
+    
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            result = response.json()
+            return result
+        else:
+            print("Failed to fetch ADL chart data:", response.json())
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return []
+
+
+def save_adl_data_from_management_window(api_url, resident_name, adl_data, audit_description):
+    """
+    Save ADL data for a specific resident from the management window to the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident to save data for.
+        adl_data (dict): The ADL data to save for the resident.
+
+    Returns:
+        bool: True if the data was saved successfully, False otherwise.
+    """
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}'}
+    data = {
+        "resident_name": resident_name,
+        "adl_data": adl_data,
+        "audit_description": audit_description
+    }
+    try:
+        response = requests.post(f"{api_url}/save_adl_data_from_management_window", json=data, headers=headers)
+        if response.status_code == 200:
+            print("ADL data saved successfully.")
+            sg.popup("Data saved successfully!")
+            return True
+        else:
+            print("Failed to save ADL data:", response.json())
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+    
+
+# API_URL = 'http://127.0.0.1:5000'
+
+# testing_adl_data = fetch_adl_chart_data_for_month(API_URL, 'Dirty Diana', '2024-02')
+# print(testing_adl_data)

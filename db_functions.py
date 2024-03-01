@@ -8,18 +8,6 @@ def fetch_residents():
         return [row[0] for row in cursor.fetchall()]
 
 
-def get_resident_care_level():
-    """Fetch and decrypt residents' care level from the database."""
-    decrypted_care_levels = {}
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT name, level_of_care FROM residents')
-        for name, encrypted_level_of_care in cursor.fetchall():
-            decrypted_level_of_care = decrypt_data(encrypted_level_of_care)  # Assuming decrypt_data is already defined
-            decrypted_care_levels[name] = decrypted_level_of_care
-    return decrypted_care_levels
-
-
 def fetch_audit_logs(last_10_days=False, username='', action='', date=''):
     conn = sqlite3.connect('resident_data.db')
     cursor = conn.cursor()
@@ -70,30 +58,6 @@ def fetch_audit_logs(last_10_days=False, username='', action='', date=''):
     
     return decrypted_logs
 
-
-def update_user_password(username, new_password):
-    """
-    Update the user's password in the database.
-
-    Args:
-    username (str): The username of the user.
-    new_password (str): The new password to be set for the user.
-    """
-    # Hash the new password
-    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-
-    # Connect to the SQLite database
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-
-        # Update the user's password and reset the is_temp_password flag
-        cursor.execute('''
-            UPDATE users
-            SET password_hash = ?, is_temp_password = 0
-            WHERE username = ?
-        ''', (hashed_password, username))
-
-        conn.commit()
 
 
 def save_backup_configuration(backup_folder, backup_frequency):
@@ -180,26 +144,6 @@ def remove_user(username):
     conn.close()
 
 
-def get_user_initials(username):
-    """
-    Fetches the initials for a given username from the users table.
-
-    Args:
-    username (str): The username of the user.
-
-    Returns:
-    str: The initials of the user or None if not found.
-    """
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT initials FROM users WHERE username = ?", (username,))
-        result = cursor.fetchone()
-        if result:
-            return result[0]
-        else:
-            return None
-
-
 def get_user_theme():
     with sqlite3.connect('resident_data.db') as conn:
         cursor = conn.cursor()
@@ -250,29 +194,6 @@ def save_user_font_choice(font):
             # Insert a new font setting
             cursor.execute('INSERT INTO user_settings (setting_name, setting_value) VALUES ("font", ?)', (font,))
 
-        conn.commit()
-
-
-
-def get_resident_names():
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT name FROM residents')
-        residents = cursor.fetchall()
-        # Fetchall returns a list of tuples, so we'll use a list comprehension
-        # to extract the names and return them as a list of strings.
-        return [name[0] for name in residents]
-
-
-def insert_resident(name, date_of_birth, level_of_care):
-    """ Insert a new resident into the database, with encryption for certain fields. """
-    encrypted_dob = encrypt_data(date_of_birth)  # Assuming encrypt_data is already defined
-    encrypted_level_of_care = encrypt_data(level_of_care)
-
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('INSERT INTO residents (name, date_of_birth, level_of_care) VALUES (?, ?, ?)', 
-                       (name, encrypted_dob, encrypted_level_of_care))
         conn.commit()
 
 
@@ -792,28 +713,6 @@ ADL_KEYS = [
                 "snack_pm", "water_intake"]
 
 
-def fetch_adl_data_for_resident(resident_name):
-    today = datetime.now().strftime("%Y-%m-%d")
-    resident_id = get_resident_id(resident_name)  # Ensure this function exists and correctly fetches the ID
-
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        # Adjust the query to use resident_id instead of resident_name
-        cursor.execute('''
-            SELECT * FROM adl_chart
-            WHERE resident_id = ? AND date = ?
-        ''', (resident_id, today))
-        result = cursor.fetchone()
-        
-        if result:
-            # Convert the row to a dictionary
-            columns = [col[0] for col in cursor.description]
-            # Mapping each column to its value, excluding resident_id to maintain data abstraction
-            adl_data = {columns[i]: result[i] for i in range(1, len(columns))}  # Skipping index 0 assuming it's resident_id
-            return adl_data
-        else:
-            return {}
-
 
 def fetch_adl_chart_data_for_month(resident_name, year_month):
     # year_month should be in the format 'YYYY-MM'
@@ -826,116 +725,6 @@ def fetch_adl_chart_data_for_month(resident_name, year_month):
             ORDER BY date
         ''', (resident_id, year_month))
         return cursor.fetchall()
-
-
-def fetch_adl_data_for_resident_and_date(resident_name, date):
-    """
-    Fetches ADL data for a specific resident and date.
-
-    Args:
-        resident_name (str): The name of the resident.
-        date (str): The date in YYYY-MM-DD format.
-
-    Returns:
-        dict: A dictionary containing ADL data for the resident and date.
-    """
-    resident_id = get_resident_id(resident_name)
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT * FROM adl_chart WHERE resident_id = ? AND date = ?
-        ''', (resident_id, date))
-        result = cursor.fetchone()
-
-    if result:
-        # Map the SQL result to dictionary keys based on the ADL chart structure
-        adl_data = {
-            'first_shift_sp': result[3],
-            'second_shift_sp': result[4],
-            'first_shift_activity1': result[5],
-            'first_shift_activity2': result[6],
-            'first_shift_activity3': result[7],
-            'second_shift_activity4': result[8],
-            'first_shift_bm': result[9],
-            'second_shift_bm': result[10],
-            'shower': result[11],
-            'shampoo': result[12],
-            'sponge_bath': result[13],
-            'peri_care_am': result[14],
-            'peri_care_pm': result[15],
-            'oral_care_am': result[16],
-            'oral_care_pm': result[17],
-            'nail_care': result[18],
-            'skin_care': result[19],
-            'shave': result[20],
-            'breakfast': result[21],
-            'lunch': result[22],
-            'dinner': result[23],
-            'snack_am': result[24],
-            'snack_pm': result[25],
-            'water_intake': result[26]
-        }
-        return adl_data
-    else:
-        # Return an empty dictionary if no data is found for the given resident and date
-        return {}
-
-
-def save_adl_data_from_management_window(resident_name, adl_data):
-    resident_id = get_resident_id(resident_name)
-
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        # Construct the SQL statement with all the columns
-        sql = '''
-            INSERT INTO adl_chart (resident_id, date, first_shift_sp, second_shift_sp, 
-            first_shift_activity1, first_shift_activity2, first_shift_activity3, second_shift_activity4, 
-            first_shift_bm, second_shift_bm, shower, shampoo, sponge_bath, peri_care_am, 
-            peri_care_pm, oral_care_am, oral_care_pm, nail_care, skin_care, shave, 
-            breakfast, lunch, dinner, snack_am, snack_pm, water_intake)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(resident_id, date) DO UPDATE SET
-            first_shift_sp = excluded.first_shift_sp, second_shift_sp = excluded.second_shift_sp, 
-            first_shift_activity1 = excluded.first_shift_activity1, first_shift_activity2 = excluded.first_shift_activity2,
-            first_shift_activity3 = excluded.first_shift_activity3, second_shift_activity4 = excluded.second_shift_activity4,
-            first_shift_bm = excluded.first_shift_bm, second_shift_bm = excluded.second_shift_bm, shower = excluded.shower,
-            shampoo = excluded.shampoo,sponge_bath = excluded.sponge_bath, peri_care_am = excluded.peri_care_am, 
-            peri_care_pm = excluded.peri_care_pm, oral_care_am = excluded.oral_care_am, oral_care_pm = excluded.oral_care_pm,
-            nail_care = excluded.nail_care, skin_care = excluded.skin_care, shave = excluded.shave, breakfast = excluded.breakfast,
-            lunch = excluded.lunch, dinner = excluded.dinner, snack_am = excluded.snack_am, snack_pm = excluded.snack_pm,
-            water_intake = excluded.water_intake
-        '''
-        
-        data_tuple = (
-            resident_id, 
-            datetime.now().strftime("%Y-%m-%d"),
-            adl_data.get('first_shift_sp', ''),
-            adl_data.get('second_shift_sp', ''),
-            adl_data.get('first_shift_activity1', ''),
-            adl_data.get('first_shift_activity2', ''),
-            adl_data.get('first_shift_activity3', ''),
-            adl_data.get('second_shift_activity4', ''),
-            adl_data.get('first_shift_bm', ''),
-            adl_data.get('second_shift_bm', ''),
-            adl_data.get('shower', ''),
-            adl_data.get('shampoo', ''),
-            adl_data.get('sponge_bath', ''),
-            adl_data.get('peri_care_am', ''),
-            adl_data.get('peri_care_pm', ''),
-            adl_data.get('oral_care_am', ''),
-            adl_data.get('oral_care_pm', ''),
-            adl_data.get('nail_care', ''),
-            adl_data.get('skin_care', ''),
-            adl_data.get('shave', ''),
-            adl_data.get('breakfast', ''),
-            adl_data.get('lunch', ''),
-            adl_data.get('dinner', ''),
-            adl_data.get('snack_am', ''),
-            adl_data.get('snack_pm', ''),
-            adl_data.get('water_intake', '')
-        )
-        cursor.execute(sql, data_tuple)
-        conn.commit()
 
 
 def save_adl_data_from_chart_window(resident_name, year_month, window_values):

@@ -1,10 +1,20 @@
 import db_functions
+from datetime import datetime
 import PySimpleGUI as sg
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter,inch, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 import calendar
+
+
+# Custom action to add a footer
+def add_footer(canvas, doc):
+    footer_text = f"CareTech ADL Chart PDF Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    canvas.saveState()
+    canvas.setFont('Times-Roman', 10)
+    canvas.drawString(doc.leftMargin, 15, footer_text)
+    canvas.restoreState()
 
 
 # def create_medication_schedule_pdf(resident_name, medications_data):
@@ -136,13 +146,18 @@ def generate_adl_chart_pdf(resident_name, year_month, adl_data):
         row = [activity] + ['' for _ in range(days_in_month)]  # Placeholder for each day
         table_data.append(row)
     
-    # Update the table with actual ADL data
     for entry in adl_data:
-        date = entry[2]  # Assuming this is where the date is
-        day = int(date.split('-')[2]) - 1  # Convert date to day of month and adjust for 0 indexing
-        for i, activity_data in enumerate(entry[3:]):  # Skip id, resident_id, and date
-            if activity_data:  # If there's data for this activity, update the cell
-                table_data[i + 1][day + 1] = activity_data  # +1 because of headers row
+        chart_date_str = entry["chart_date"]
+        date_part = ' '.join(chart_date_str.split(' ')[1:4])
+        chart_date = datetime.strptime(date_part, "%d %b %Y")
+        day_number = chart_date.day - 1  # Adjust for 0 indexing
+        for i, adl_key in enumerate(adl_activities):
+            value = entry.get(adl_key.lower().replace(" ", "_"), "")
+            if value:
+                table_data[i + 1][day_number + 1] = value  # +1 because of headers row
+
+    
+    
     
     # Creating the table
     table = Table(table_data, repeatRows=1)
@@ -208,5 +223,5 @@ def generate_adl_chart_pdf(resident_name, year_month, adl_data):
     elements.append(activities_table)
     
     # Build and save the PDF
-    doc.build(elements)
-    print(f"PDF generated: {pdf_name}")
+    doc.build(elements, onFirstPage=add_footer, onLaterPages=add_footer)
+    sg.Popup(f"PDF generated: {pdf_name}")  # Show a popup to indicate the PDF was generated

@@ -1,7 +1,10 @@
 import PySimpleGUI as sg
+from datetime import datetime
 import calendar
 import db_functions
 import pdf
+import api_functions
+from new_main import API_URL
 
 
 # Define the width of the label cell and regular cells
@@ -29,7 +32,6 @@ def create_row_label(text):
 
 def create_input_text(key):
     return [sg.InputText(size=(regular_cell_width, 1), pad=(3, 3), justification='center', key=f'-{key}-{i}-') for i in range(1, num_days + 1)]
-
 
 
 def show_adl_chart(resident_name, year_month):
@@ -152,19 +154,23 @@ def show_adl_chart(resident_name, year_month):
     # Create the window
     window = sg.Window(' CareTech Monthly ADLs', layout, finalize=True, resizable=True)
 
-    adl_data = db_functions.fetch_adl_chart_data_for_month(resident_name, year_month)
 
-    # If data is found, update the layout fields accordingly
+    adl_data = api_functions.fetch_adl_chart_data_for_month(API_URL, resident_name, year_month)
+    
     if adl_data:
         for entry in adl_data:
-            chart_id, resident, date, *values = entry  # Unpack each tuple
-            day_number = int(date.split('-')[2])  # Extract day number from date
+            chart_date_str = entry.get("chart_date")
+            # Example: 'Tue, 27 Feb 2024 00:00:00 GMT' -> '27 Feb 2024'
+            date_part = ' '.join(chart_date_str.split(' ')[1:4])
+            # Parse '27 Feb 2024' into a datetime object
+            chart_date = datetime.strptime(date_part, "%d %b %Y")
+            day_number = chart_date.day  # Extract the day of the month
 
-            ADL_KEYS
-
-            for adl_key, value in zip(ADL_KEYS, values):
+            for adl_key in ADL_KEYS:
+                value = entry.get(adl_key, "")
                 if value:  # Check if there is a value to update
                     window[f'-{adl_key}-{day_number}-'].update(value)
+
 
     # Event Loop
     while True:
