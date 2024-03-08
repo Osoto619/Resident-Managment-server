@@ -2,7 +2,9 @@ import PySimpleGUI as sg
 import calendar
 from datetime import datetime
 import db_functions
+import api_functions
 
+API_URL = 'http://127.0.0.1:5000'
 
 # Define the width of the label cell and regular cells
 label_cell_width = 12  # This may need to be adjusted to align perfectly
@@ -192,14 +194,14 @@ def show_emar_chart(resident_name, year_month):
     month_name = calendar.month_name[int(month_number)]
 
     # Fetch eMAR data for the month
-    emar_data = db_functions.fetch_emar_data_for_month(resident_name, year_month)
+    emar_data = api_functions.fetch_emar_data_for_month(API_URL, resident_name, year_month)
 
     # Fetch discontinued medications with their discontinuation dates
-    discontinued_medications = db_functions.fetch_discontinued_medications(resident_name)
+    discontinued_medications = api_functions.fetch_discontinued_medications(API_URL, resident_name)
     # print('testing dc meds')
     # print(discontinued_medications)
 
-    original_structure = db_functions.fetch_medications_for_resident(resident_name)
+    original_structure = api_functions.fetch_medications_for_resident(API_URL, resident_name)
     
     # Process Scheduled Medications
     new_structure = {}

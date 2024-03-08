@@ -4,7 +4,7 @@ import urllib.parse
 import PySimpleGUI as sg
 
 
-# ----------------- users Table ----------------- #
+# ---------------------------- users Table ---------------------------- #
 
 def is_first_time_setup(api_url):
     """
@@ -263,7 +263,7 @@ def get_user_initials(api_url):
         print(f"Request failed: {e}")
         return ''
 
-# ----------------- audit_logs Table ----------------- #
+# ----------------------------- audit_logs Table ----------------------------- #
 
 def log_action(api_url, username, activity, details):
     data = {
@@ -277,7 +277,7 @@ def log_action(api_url, username, activity, details):
     else:
         print("Failed to log action")
 
- # ----------------- residents Table ----------------- #
+ # ----------------------------- residents Table ------------------------------ #
         
 def get_resident_count(api_url):
     """
@@ -402,7 +402,7 @@ def insert_resident(api_url, name, date_of_birth, level_of_care):
         return False
 
 
-# ----------------- adl_chart Table ----------------- #
+# -------------------------- adl_chart Table ------------------------------ #
     
 def fetch_adl_data_for_resident(api_url, resident_name):
     """
@@ -500,9 +500,316 @@ def save_adl_data_from_management_window(api_url, resident_name, adl_data, audit
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
         return False
+
+
+# ------------------------------- medications Table ------------------------------- #
+
+def insert_medication(api_url, resident_name, medication_name, dosage, instructions, medication_type, selected_time_slots, medication_form=None, medication_count=None):
+    """
+    Insert medication details for a resident via the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): Name of the resident.
+        medication_name (str): Name of the medication.
+        dosage (str): Dosage of the medication.
+        instructions (str): Instructions for the medication.
+        medication_type (str): Type of the medication (e.g., 'Scheduled', 'As Needed (PRN)', 'Controlled').
+        selected_time_slots (list): List of selected time slots for the medication.
+        medication_form (str, optional): Form of the medication (e.g., 'Pill', 'Liquid'). Default is None.
+        medication_count (int, optional): Count of the medication for 'Controlled' type. Default is None.
+
+    Returns:
+        bool: True if the medication was inserted successfully, False otherwise.
+    """
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+    payload = {
+        "resident_name": resident_name,
+        "medication_name": medication_name,
+        "dosage": dosage,
+        "instructions": instructions,
+        "medication_type": medication_type,
+        "selected_time_slots": selected_time_slots,
+        "medication_form": medication_form,
+        "count": medication_count
+    }
+
+    try:
+        response = requests.post(f"{api_url}/insert_medication", json=payload, headers=headers)
+        if response.status_code == 200:
+            print("Medication inserted successfully.")
+            return True
+        else:
+            print(f"Failed to insert medication: {response.text}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+
+def fetch_medications_for_resident(api_url, resident_name):
+    """
+    Fetch medications for a specific resident from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident whose medications are to be fetched.
+
+    Returns:
+        dict: Medication data for the resident, or an empty dict on failure.
+    """
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return {}
+
+    headers = {'Authorization': f'Bearer {token}'}
+    # URL-encode the resident name to handle spaces and special characters
+    encoded_resident_name = requests.utils.quote(resident_name)
+    full_url = f"{api_url}/fetch_medications_for_resident/{encoded_resident_name}"
+
+    try:
+        response = requests.get(full_url, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print("Failed to fetch medications:", response.text)
+            return {}
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return {}
+
+
+def fetch_discontinued_medications(api_url, resident_name):
+    """
+    Fetch discontinued medications for a specific resident from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident.
+
+    Returns:
+        dict: Discontinued medication names and dates, or an empty dict on failure.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return {}
+
+    headers = {'Authorization': f'Bearer {token}'}
+    url = f"{api_url}/fetch_discontinued_medications/{requests.utils.quote(resident_name)}"
+
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print("Failed to fetch discontinued medications:", response.text)
+            return {}
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return {}
+
+
+def filter_active_medications(api_url, resident_name, medication_names):
+    """
+    Filter active medications for a specific resident from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident whose medications are to be filtered.
+        medication_names (list): A list of medication names to filter.
+
+    Returns:
+        list: A list of active medication names for the resident, or an empty list on failure.
+    """
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return []
+
+    headers = {'Authorization': f'Bearer {token}'}
+    data = {
+        "resident_name": resident_name,
+        "medication_names": medication_names
+    }
     
+    full_url = f"{api_url}/filter_active_medications"
+
+    try:
+        response = requests.post(full_url, json=data, headers=headers)
+        if response.status_code == 200:
+            # Expecting the server to return a list of active medication names
+            return response.json().get('active_medications', [])
+        else:
+            print("Failed to filter medications:", response.text)
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return []
+
+
+# ------------------------------- non_medication_orders Table ------------------------------- #
+
+def save_non_medication_order(api_url, resident_name, order_data):
+    """
+    Send a non-medication order for a specific resident to the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident for whom the order is being added.
+        order_data (dict): The order data to be sent to the server.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return
+
+    headers = {'Authorization': f'Bearer {token}'}
+    response = requests.post(f"{api_url}/add_non_medication_order/{resident_name}", json=order_data, headers=headers)
+
+    if response.status_code == 200:
+        print("Non-medication order added successfully.")
+    else:
+        print(f"Failed to add non-medication order: {response.text}")
+
+
+def fetch_all_non_medication_orders(api_url, resident_name):
+    """
+    Fetch all non-medication orders for a specific resident from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident whose non-medication orders are to be fetched.
+
+    Returns:
+        A list of non-medication orders for the resident, or an error message.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return []
+
+    headers = {'Authorization': f'Bearer {token}'}
+    response = requests.get(f"{api_url}/fetch_non_medication_orders/{resident_name}", headers=headers)
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Failed to fetch non-medication orders: {response.text}")
+        return []
+
+# --------------------------------- emar_chart Table ----------------------------------------- #
+
+def fetch_emar_data_for_resident(api_url, resident_name):
+    """
+    Fetches eMAR data for a specific resident for the current day from a Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident whose eMAR data is being requested.
+
+    Returns:
+        dict: A dictionary containing eMAR data organized by medication name and time slot,
+              or an empty dictionary if no data is found or an error occurs.
+    """
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return {}
+
+    headers = {'Authorization': f'Bearer {token}'}
+    # URL-encode the resident name to handle spaces and special characters
+    encoded_resident_name = requests.utils.quote(resident_name)
+    full_url = f"{api_url}/fetch_emar_data_for_resident/{encoded_resident_name}"
+
+    try:
+        response = requests.get(full_url, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print("Failed to fetch eMAR data:", response.text)
+            return {}
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return {}
+
+
+def fetch_emar_data_for_month(api_url, resident_name, year_month):
+    """
+    Fetch eMAR data for a specific resident for a specific month from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident to fetch data for.
+        year_month (str): The year and month to fetch data for in 'YYYY-MM' format.
+
+    Returns:
+        list: A list of dictionaries containing eMAR data for the resident, or an empty list on failure.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return []
+
+    headers = {'Authorization': f'Bearer {token}'}
+    url = f"{api_url}/fetch_emar_data_for_month/{resident_name}?year_month={year_month}"
+    
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            emar_data = response.json()
+            return emar_data
+        else:
+            print("Failed to fetch eMAR data:", response.json())
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return []
+
+
+def save_emar_data_from_management_window(api_url, emar_data, audit_description):
+    """
+    Sends EMAR data and audit description to the Flask API to be saved and logged.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        emar_data (list): A list of dictionaries containing EMAR data.
+        audit_description (str): Description of the audit for logging.
+
+    Returns:
+        Response from the API.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+    payload = {"emar_data": emar_data, "audit_description": audit_description}
+
+    try:
+        response = requests.post(f"{api_url}/save_emar_data", json=payload, headers=headers)
+        if response.status_code in [200, 201]:
+            print("EMAR data saved successfully.")
+            return response.json()
+        else:
+            print(f"Failed to save EMAR data: {response.text}")
+            return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return {}
 
 # API_URL = 'http://127.0.0.1:5000'
 
-# testing_adl_data = fetch_adl_chart_data_for_month(API_URL, 'Dirty Diana', '2024-02')
-# print(testing_adl_data)
+# emar = fetch_emar_data_for_resident(API_URL, 'Dirty Diana')
+# print(emar)

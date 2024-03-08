@@ -12,7 +12,7 @@ def get_adl_tab_layout(resident_name):
     existing_data = api_functions.fetch_adl_data_for_resident(API_URL, resident_name)
     resident_care_levels = api_functions.get_resident_care_level(API_URL)
     is_supervisory_care = any(resident['name'] == resident_name and resident['level_of_care'] == 'Supervisory Care' for resident in resident_care_levels)
-    user_initials = api_functions.get_user_initials(API_URL)
+    user_initials = config.global_config['user_initials']
     user_choices = [user_initials, 'S', 'H']  # Add user initials dynamically
 
     # Fields to auto-populate for self-care residents

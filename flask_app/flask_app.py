@@ -384,7 +384,6 @@ def get_resident_care_level():
             conn.close()
 
 
-
 @app.route('/insert_resident', methods=['POST'])
 @jwt_required()
 def insert_resident():
@@ -482,51 +481,6 @@ def fetch_adl_chart_data_for_month(resident_name):
         return jsonify({'error': str(e)}), 500
 
 
-# @app.route('/fetch_adl_chart_data_for_month/<resident_name>', methods=['GET'])
-# @jwt_required()
-# def fetch_adl_chart_data_for_month(resident_name):
-#     year_month = request.args.get('year_month', '')
-
-#     # Validate 'year_month' format
-#     try:
-#         datetime.strptime(year_month, "%Y-%m")
-#     except ValueError:
-#         return jsonify({'error': 'Invalid year_month format. Use YYYY-MM.'}), 400
-
-#     resident_id = get_resident_id(resident_name)
-#     if not resident_id:
-#         return jsonify({'error': 'Resident not found'}), 404
-
-#     # Log the parameters to debug the execution
-#     logging.debug("Querying ADL chart data for resident_id: %s, year_month: %s", resident_id, year_month)
-
-#     try:
-#         conn = get_db_connection()
-#         query = """
-#             SELECT * FROM adl_chart
-#             WHERE resident_id = %s AND DATE_FORMAT(chart_date, '%Y-%m') = %s
-#             ORDER BY chart_date
-#         """
-#         # Log the exact query being sent to MySQL
-#         logging.debug("Executing query: %s with parameters: resident_id=%s, year_month=%s", query, resident_id, year_month)
-        
-#         with conn.cursor() as cursor:
-#             cursor.execute(query, (resident_id, year_month))
-#             results = cursor.fetchall()
-
-#             if results:
-#                 columns = [col[0] for col in cursor.description]
-#                 adl_data = [{columns[i]: row[i] for i in range(len(columns))} for row in results]
-#                 return jsonify(adl_data), 200
-#             else:
-#                 # Log if no data found
-#                 logging.debug("No ADL chart data found for resident_id: %s, year_month: %s", resident_id, year_month)
-#                 return jsonify([]), 200
-#     except Exception as e:
-#         logging.error("Error fetching ADL chart data: %s", str(e))
-#         return jsonify({'error': str(e)}), 500
-
-
 @app.route('/save_adl_data_from_management_window', methods=['POST'])
 @jwt_required()
 def save_adl_data_from_management_window():
@@ -608,6 +562,429 @@ def save_adl_data_from_management_window():
         return jsonify({'error': str(e)}), 500
 
 
+# --------------------------------- medications Table --------------------------------- #
+
+@app.route('/insert_medication', methods=['POST'])
+@jwt_required()
+def insert_medication():
+    # Extract medication details from the request body
+    data = request.get_json()
+    resident_name = data.get('resident_name')
+    medication_name = data.get('medication_name')
+    dosage = data.get('dosage')
+    instructions = data.get('instructions')
+    medication_type = data.get('medication_type')
+    selected_time_slots = data.get('selected_time_slots')
+    medication_form = data.get('medication_form', None)
+    count = data.get('count', None)
+    current_user_identity = get_jwt_identity()
+
+    admin_check = is_user_admin(current_user_identity)
+    if not admin_check:
+        return jsonify({'error': 'Unauthorized - Admin role required'}), 403
+
+    resident_id = get_resident_id(resident_name)
+    if resident_id is None:
+        return jsonify({'error': 'Resident not found'}), 404
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Encrypt PHI fields
+        encrypted_dosage = encrypt_data(dosage) 
+        encrypted_instructions = encrypt_data(instructions)  
+
+        # Insert medication details
+        if medication_type == 'Controlled':
+            cursor.execute('''
+                INSERT INTO medications (resident_id, medication_name, dosage, instructions, medication_type, medication_form, count) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ''', (resident_id, medication_name, encrypted_dosage, encrypted_instructions, medication_type, medication_form, count))
+        else:
+            cursor.execute('''
+                INSERT INTO medications (resident_id, medication_name, dosage, instructions, medication_type) 
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (resident_id, medication_name, encrypted_dosage, encrypted_instructions, medication_type))
+        medication_id = cursor.lastrowid
+
+        # Handle time slot relations for scheduled medications
+        if medication_type == 'Scheduled':
+            for slot in selected_time_slots:
+                cursor.execute('SELECT id FROM time_slots WHERE slot_name = %s', (slot,))
+                slot_id = cursor.fetchone()[0]
+                cursor.execute('INSERT INTO medication_time_slots (medication_id, time_slot_id) VALUES (%s, %s)', (medication_id, slot_id))
+
+        conn.commit()
+        log_action(current_user_identity, 'Medication Added', f'Medication Added {medication_name} for {resident_name}')
+        return jsonify({'message': 'Medication inserted successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+
+@app.route('/fetch_discontinued_medications/<resident_name>', methods=['GET'])
+@jwt_required()
+def fetch_discontinued_medications(resident_name):
+    resident_id = get_resident_id(resident_name)
+    
+    if not resident_id:
+        return jsonify({'error': 'Resident not found'}), 404
+    
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # Fetch discontinued medications
+            cursor.execute('''
+                SELECT medication_name, discontinued_date FROM medications 
+                WHERE resident_id = %s AND discontinued_date IS NOT NULL
+            ''', (resident_id,))
+            results = cursor.fetchall()
+
+        discontinued_medications = {row[0]: row[1] for row in results}
+
+        return jsonify(discontinued_medications), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn.is_connected():
+            conn.close()
+
+
+@app.route('/fetch_medications_for_resident/<resident_name>', methods=['GET'])
+@jwt_required()
+def fetch_medications_for_resident(resident_name):
+    resident_id = get_resident_id(resident_name)
+    if not resident_id:
+        return jsonify({'error': 'Resident not found'}), 404
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Fetch Scheduled Medications
+    cursor.execute("""
+        SELECT m.medication_name, m.dosage, m.instructions, ts.slot_name
+        FROM medications m
+        JOIN medication_time_slots mts ON m.id = mts.medication_id
+        JOIN time_slots ts ON mts.time_slot_id = ts.id
+        WHERE m.resident_id = %s AND m.medication_type = 'Scheduled'
+    """, (resident_id,))
+    scheduled_results = cursor.fetchall()
+
+    scheduled_medications = {}
+    for med_name, dosage, instructions, time_slot in scheduled_results:
+        # Assuming decrypt_data is a function that decrypts the data
+        decrypted_dosage = decrypt_data(dosage)
+        decrypted_instructions = decrypt_data(instructions)
+        if time_slot not in scheduled_medications:
+            scheduled_medications[time_slot] = {}
+        scheduled_medications[time_slot][med_name] = {
+            'dosage': decrypted_dosage, 'instructions': decrypted_instructions}
+
+    # Fetch PRN Medications
+    cursor.execute("""
+        SELECT medication_name, dosage, instructions
+        FROM medications 
+        WHERE resident_id = %s AND medication_type = 'As Needed (PRN)'
+    """, (resident_id,))
+    prn_results = cursor.fetchall()
+
+    prn_medications = {med_name: {'dosage': decrypt_data(dosage), 'instructions': decrypt_data(instructions)} 
+        for med_name, dosage, instructions in prn_results}
+
+    # Fetch Controlled Medications
+    cursor.execute("""
+        SELECT medication_name, dosage, instructions, count, medication_form
+        FROM medications 
+        WHERE resident_id = %s AND medication_type = 'Controlled'
+    """, (resident_id,))
+    controlled_results = cursor.fetchall()
+
+    controlled_medications = {med_name: {'dosage': decrypt_data(dosage), 'instructions': decrypt_data(instructions), 'count': count, 'form': medication_form} 
+        for med_name, dosage, instructions, count, medication_form in controlled_results}
+
+    # Combine the data into a single structure
+    medications_data = {'Scheduled': scheduled_medications, 'PRN': prn_medications, 'Controlled': controlled_medications}
+    
+    cursor.close()
+    conn.close()
+    
+    return jsonify(medications_data)
+
+
+@app.route('/filter_active_medications', methods=['POST'])
+@jwt_required()
+def filter_active_medications():
+    # Assuming you're receiving a list of medication names and a resident name in the request JSON
+    data = request.get_json()
+    medication_names = data.get('medication_names', [])
+    resident_name = data.get('resident_name', '')
+    active_medications = []
+
+    try:
+        conn = get_db_connection()
+        if conn is not None:
+            with conn.cursor() as cursor:
+                for med_name in medication_names:
+                    cursor.execute('''
+                        SELECT discontinued_date FROM medications
+                        JOIN residents ON medications.resident_id = residents.id
+                        WHERE residents.name = %s AND medications.medication_name = %s
+                    ''', (resident_name, med_name))
+                    result = cursor.fetchone()
+
+                    # Check if the medication is discontinued and if the discontinuation date is past the current date
+                    if result is None or (result[0] is None or datetime.datetime.now().date() < result[0]):
+                        active_medications.append(med_name)
+
+            return jsonify(active_medications=active_medications), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn.is_connected():
+            conn.close()
+
+
+@app.route('/fetch_all_non_medication_orders_for_resident/<resident_name>', methods=['GET'])
+@jwt_required()
+def fetch_all_non_medication_orders_for_resident(resident_name):
+    resident_id = get_resident_id(resident_name)
+    if resident_id is None:
+        return jsonify({'error': 'Resident not found'}), 404
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)  # Use dictionary=True to get the results as dictionaries
+
+        cursor.execute('''
+            SELECT order_id, order_name, frequency, specific_days, special_instructions, discontinued_date, last_administered_date
+            FROM non_medication_orders
+            WHERE resident_id = %s
+        ''', (resident_id,))
+        orders = cursor.fetchall()
+
+        if not orders:
+            return jsonify({'message': 'No non-medication orders found for the specified resident'}), 200
+
+        # The results are already dictionaries, so you can directly return them
+        return jsonify({'non_medication_orders': orders}), 200
+    except mysql.connector.Error as err:
+        return jsonify({'error': str(err)}), 500
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+
+# -------------------------------- non_medication_orders Table -------------------------------- #
+
+@app.route('/add_non_medication_order/<resident_name>', methods=['POST'])
+@jwt_required()
+def save_non_medication_order(resident_name):
+    data = request.get_json()
+    resident_id = get_resident_id(resident_name)
+    if not resident_id:
+        return jsonify({'error': 'Resident not found'}), 404
+
+    order_name = data.get('order_name')
+    frequency = data.get('frequency', '')
+    specific_days = data.get('specific_days', '')
+    instructions = data.get('instructions')
+
+    # Validate input
+    if not order_name:
+        return jsonify({'error': 'Order name is required'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('''
+            INSERT INTO non_medication_orders (resident_id, order_name, frequency, specific_days, special_instructions)
+            VALUES (%s, %s, %s, %s, %s)
+        ''', (resident_id, order_name, frequency, specific_days, instructions))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+    # Log the action 
+    log_action(get_jwt_identity(), 'Add Non-Medication Order', f'Order for {resident_name}: {order_name}')
+
+    return jsonify({'message': 'Non-medication order added successfully'}), 200
+
+
+@app.route('/fetch_non_medication_orders/<resident_name>', methods=['GET'])
+@jwt_required()
+def fetch_all_non_medication_orders(resident_name):
+    resident_id = get_resident_id(resident_name)
+    if not resident_id:
+        return jsonify({'error': f'Resident {resident_name} not found'}), 404
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute('''
+            SELECT order_id, order_name, frequency, specific_days, special_instructions, discontinued_date, last_administered_date
+            FROM non_medication_orders
+            WHERE resident_id = %s
+        ''', (resident_id,))
+        orders = cursor.fetchall()
+
+        # Prepare and return the list of orders
+        non_medication_orders = [{
+            'order_id': order['order_id'],
+            'order_name': order['order_name'],
+            'frequency': order['frequency'],
+            'specific_days': order['specific_days'],
+            'special_instructions': order['special_instructions'],
+            'discontinued_date': order['discontinued_date'] if order['discontinued_date'] else None,
+            'last_administered_date': order['last_administered_date'] if order['last_administered_date'] else None,
+        } for order in orders]
+
+        return jsonify(non_medication_orders), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ----------------------------------- emar_chart Table ----------------------------------------- #
+
+@app.route('/fetch_emar_data_for_resident/<resident_name>', methods=['GET'])
+@jwt_required()
+def fetch_emar_data_for_resident(resident_name):
+    today = datetime.now().strftime("%Y-%m-%d")
+    resident_id = get_resident_id(resident_name)
+    
+    if not resident_id:
+        return jsonify({'error': 'Resident not found'}), 404
+    
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # Fetch eMAR data for the resident for today
+            cursor.execute("""
+                SELECT m.medication_name, e.time_slot, e.administered
+                FROM emar_chart e
+                JOIN medications m ON e.medication_id = m.id
+                WHERE e.resident_id = %s AND e.chart_date = %s
+            """, (resident_id, today))
+            
+            results = cursor.fetchall()
+
+        # Organize eMAR data by medication name and time slot
+        emar_data = {}
+        for med_name, time_slot, administered in results:
+            if med_name not in emar_data:
+                emar_data[med_name] = {}
+            emar_data[med_name][time_slot] = administered
+
+        return jsonify(emar_data), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn.is_connected():
+            conn.close()
+
+
+@app.route('/fetch_emar_data_for_month/<resident_name>', methods=['GET'])
+@jwt_required()
+def fetch_emar_data_for_month(resident_name):
+    year_month = request.args.get('year_month', None)
+    if not year_month:
+        return jsonify({'error': 'Year and month parameter is required'}), 400
+
+    resident_id = get_resident_id(resident_name)
+    if not resident_id:
+        return jsonify({'error': 'Resident not found'}), 404
+
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # Fetch eMAR data for the resident for the specified month
+            cursor.execute("""
+                SELECT m.medication_name, DATE_FORMAT(e.chart_date, '%Y-%m-%d') as chart_date, e.time_slot, e.administered
+                FROM emar_chart e
+                JOIN medications m ON e.medication_id = m.id
+                WHERE e.resident_id = %s AND DATE_FORMAT(e.chart_date, '%%Y-%%m') = %s
+                ORDER BY e.chart_date, e.time_slot
+            """, (resident_id, year_month))
+            
+            results = cursor.fetchall()
+
+        # Organize eMAR data
+        emar_data = [{'medication_name': row[0], 'date': row[1], 'time_slot': row[2], 'administered': row[3]} for row in results]
+
+        return jsonify(emar_data), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn.is_connected():
+            conn.close()
+
+
+
+@app.route('/save_emar_data', methods=['POST'])
+@jwt_required()
+def save_emar_data_from_management_window():
+    request_data = request.json
+    emar_data = request_data.get('emar_data', [])
+    audit_description = request_data.get('audit_description', '')
+    responses = []
+
+    # Get the username from JWT
+    username = get_jwt_identity()
+
+    for entry in emar_data:
+        resident_id = get_resident_id(entry['resident_name'])
+        if not resident_id:
+            responses.append({'status': 'error', 'message': f"Resident {entry['resident_name']} not found"})
+            continue
+
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        try:
+            cursor.execute("SELECT id FROM medications WHERE resident_id = %s AND medication_name = %s", 
+                           (resident_id, entry['medication_name']))
+            medication_id_result = cursor.fetchone()
+            
+            if medication_id_result is None:
+                responses.append({'status': 'error', 'message': f"Medication {entry['medication_name']} for resident {entry['resident_name']} not found"})
+                continue
+
+            medication_id = medication_id_result['id']
+
+            sql = """
+                INSERT INTO emar_chart (resident_id, medication_id, chart_date, time_slot, administered, current_count, notes)
+                VALUES (%s, %s, %s, %s, %s, NULL, '')
+                ON DUPLICATE KEY UPDATE administered = VALUES(administered)
+            """
+            cursor.execute(sql, (resident_id, medication_id, entry['date'], entry['time_slot'], entry['administered']))
+            conn.commit()
+            
+            # Log the action with audit description
+            if audit_description:
+                log_action(username, "EMAR Data Update", audit_description)
+
+            responses.append({'status': 'success', 'message': 'Data saved successfully'})
+        except mysql.connector.Error as err:
+            conn.rollback()
+            responses.append({'status': 'error', 'message': str(err)})
+        finally:
+            cursor.close()
+            conn.close()
+
+    return jsonify(responses)
 
 # --------------------------------- Test Endpoints --------------------------------- #
 

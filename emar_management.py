@@ -1,9 +1,12 @@
 import PySimpleGUI as sg
+import api_functions
 import db_functions
 from datetime import datetime
 import welcome_screen
 import config
 from datetime import datetime
+
+API_URL = 'http://127.0.0.1:5000'
 
 
 def add_medication_window(resident_name):
@@ -90,10 +93,11 @@ def add_medication_window(resident_name):
             #     continue
 
             # Insert the new medication
-            db_functions.insert_medication(resident_name, medication_name, dosage, instructions, medication_type, selected_time_slots, medication_form, medication_count)
-            current_user = config.global_config['logged_in_user']
-            db_functions.log_action(current_user, 'New Medication', f'Medication Added {medication_name}, type {medication_type} for resident {resident_name}')
-            sg.popup('Medication Saved')
+            success = api_functions.insert_medication(API_URL, resident_name, medication_name, dosage, instructions, medication_type, selected_time_slots, medication_form, medication_count)
+            
+            if success:
+                sg.popup('Medication added successfully.')
+            
             window.close()
 
     window.close()
@@ -153,12 +157,21 @@ def add_non_medication_order_window(resident_name):
                     continue
                 specific_days = ', '.join(days_selected)
 
+            # Construct the order_data dictionary
+            order_data = {
+                'order_name': order_name,
+                'instructions': instructions,
+                'frequency': frequency,
+                'specific_days': specific_days
+            }
+
             # Proceed to save the non-medication order
             if order_name and (frequency or specific_days):
-                db_functions.save_non_medication_order(resident_id, order_name, frequency, specific_days, instructions)
+                api_functions.save_non_medication_order(API_URL,resident_name, order_data)
                 sg.popup('Non-medication order added successfully.')
-                # Optionally, log this action in the audit log with a description
-                db_functions.log_action(config.global_config['logged_in_user'], 'Add Non-Medication Order', f'Order for {resident_name}: {order_name}')
+                # # Optionally, log this action in the audit log with a description
+                # db_functions.log_action(config.global_config['logged_in_user'], 'Add Non-Medication Order', f'Order for {resident_name}: {order_name}')
+                # Will be logged server side
             else:
                 sg.popup_error('Order name, frequency, or specific days are required.')
 
@@ -422,7 +435,7 @@ def retrieve_emar_data_from_window(window, resident_name):
     emar_data = []
 
     # Fetch medications for the resident
-    medications_schedule = db_functions.fetch_medications_for_resident(resident_name)
+    medications_schedule = api_functions.fetch_medications_for_resident(API_URL, resident_name)
     # print(medications_schedule)  # Testing
 
     for category in ['Scheduled', 'PRN']:
@@ -623,24 +636,24 @@ def edit_non_med_order_window(selected_resident):
 
 def get_emar_tab_layout(resident_name):
     # Fetch medications for the resident, including both scheduled and PRN
-    all_medications_data = db_functions.fetch_medications_for_resident(resident_name)
+    all_medications_data = api_functions.fetch_medications_for_resident(API_URL, resident_name)
     # Extracting medication names and removing duplicates
     scheduled_meds = [med_name for time_slot in all_medications_data['Scheduled'].values() for med_name in time_slot]
     prn_meds = list(all_medications_data['PRN'].keys())
     controlled_meds = list(all_medications_data['Controlled'].keys())
     all_meds = list(set(scheduled_meds + prn_meds + controlled_meds))
     # Filter out discontinued medications
-    active_medications = db_functions.filter_active_medications(all_meds, resident_name)
+    active_medications = api_functions.filter_active_medications(API_URL, resident_name, all_meds)
     
     filtered_medications_data = filter_medications_data(all_medications_data, active_medications)
     
-    existing_emar_data = db_functions.fetch_emar_data_for_resident(resident_name)
+    existing_emar_data = api_functions.fetch_emar_data_for_resident(API_URL, resident_name)
     all_administered = True
 
     # Fetch non-medication orders for the resident
-    non_medication_orders = db_functions.fetch_all_non_medication_orders_for_resident(resident_name)
-    #print(f'non-medication orders:{non_medication_orders}')
-    # Filter active and due non-medication orders
+    non_medication_orders = api_functions.fetch_all_non_medication_orders(API_URL, resident_name)
+    # #print(f'non-medication orders:{non_medication_orders}')
+    # # Filter active and due non-medication orders
     active_and_due_orders = filter_active_non_medication_orders(non_medication_orders)
     
     # Predefined order of time slots
@@ -687,14 +700,15 @@ def get_emar_tab_layout(resident_name):
         sections.append([controlled_section_frame])
 
 
-    logged_in_user = config.global_config['logged_in_user']
+    is_admin = config.global_config['is_admin']
+    
     # Bottom part of the layout with buttons
     bottom_layout = [
         [sg.Text('', expand_x=True), sg.Button('Save', key='-EMAR_SAVE-', font=(welcome_screen.FONT, 11), disabled=all_administered), 
-         sg.Button('Add Medication', key='-ADD_MEDICATION-', font=(welcome_screen.FONT, 11), visible=db_functions.is_admin(logged_in_user)), 
-         sg.Button('Edit Medication', key='-EDIT_MEDICATION-', font=(welcome_screen.FONT, 11), visible=db_functions.is_admin(config.global_config['logged_in_user'])), sg.Button("Discontinue Medication", key='-DC_MEDICATION-' , font=(welcome_screen.FONT, 11), visible=db_functions.is_admin(config.global_config['logged_in_user'])), 
+         sg.Button('Add Medication', key='-ADD_MEDICATION-', font=(welcome_screen.FONT, 11), visible=is_admin), 
+         sg.Button('Edit Medication', key='-EDIT_MEDICATION-', font=(welcome_screen.FONT, 11), visible=is_admin), sg.Button("Discontinue Medication", key='-DC_MEDICATION-' , font=(welcome_screen.FONT, 11), visible=is_admin), 
          sg.Text('', expand_x=True)],
-        [sg.Text('', expand_x=True), sg.Button('Add Non-Medication Order', key='-ADD_NON-MEDICATION-', visible=db_functions.is_admin(config.global_config['logged_in_user']), font=(welcome_screen.FONT, 11)), 
+        [sg.Text('', expand_x=True), sg.Button('Add Non-Medication Order', key='-ADD_NON-MEDICATION-', visible= is_admin, font=(welcome_screen.FONT, 11)), 
          sg.Button('Edit Non-Medication Order', key='-EDIT_NON_MEDICATION-', font=(welcome_screen.FONT, 11)), sg.Button('View Non-Medication Orders', font=(welcome_screen.FONT, 11), key='-NON_MEDICATION_ORDERS-'), sg.Text('', expand_x=True)],
         [sg.Text('', expand_x=True), sg.Button('View Current Month eMARS Chart', key='CURRENT_EMAR_CHART', font=(welcome_screen.FONT, 11)), sg.Button('Generate Medication List', key='-MED_LIST-', font=(welcome_screen.FONT, 11)), sg.Text('', expand_x=True)],
         [sg.Text('', expand_x=True), sg.Text('Search eMARS Chart by Month and Year', font=(welcome_screen.FONT, 11)), sg.Text('', expand_x=True)],

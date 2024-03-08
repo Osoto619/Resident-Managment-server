@@ -484,7 +484,16 @@ def login_window():
 
 def display_welcome_window(num_of_residents_local, show_login=False):
     
-    if api_functions.is_first_time_setup(API_URL):
+    if config.global_config['is_first_time_setup'] is None:
+        config.global_config['is_first_time_setup'] = api_functions.is_first_time_setup(API_URL)
+        
+        if config.global_config['is_first_time_setup']:
+            create_initial_admin_account_window()
+            sys.exit(0)
+        else:
+            pass
+
+    if config.global_config['is_first_time_setup'] is True:
         create_initial_admin_account_window()
         sys.exit(0)
         
@@ -493,7 +502,10 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         
 
     logged_in_user = config.global_config['logged_in_user']
-    is_admin = api_functions.is_admin(API_URL, logged_in_user)   
+
+    if config.global_config['is_admin'] is None:
+        config.global_config['is_admin'] = api_functions.is_admin(API_URL, logged_in_user)
+     
 
     """ Display a welcome window with the number of residents. """
     image_path = 'ct-logo.png'
@@ -508,7 +520,7 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         [sg.Text('', expand_x=True), sg.Button('View Audit Logs', font=(FONT, 12)), sg.Button('Data Backup Setup', font=(FONT, 12 )), sg.Text('', expand_x=True)]
     ]
     
-    admin_panel = sg.Frame('Admin Panel', admin_panel_layout, font=(FONT, 14), visible=is_admin)
+    admin_panel = sg.Frame('Admin Panel', admin_panel_layout, font=(FONT, 14), visible=config.global_config['is_admin'])
 
     layout = [
         [sg.Text(f'CareTech Resident Management', font=(FONT, 20),
@@ -531,7 +543,7 @@ def display_welcome_window(num_of_residents_local, show_login=False):
              print('testing add user')
              window.close()
              add_user_window()
-             display_welcome_window(api_functions.get_resident_count(API_URL))
+             display_welcome_window(num_of_residents_local)
         elif event == 'Add Resident':
             window.close()
             enter_resident_info()

@@ -234,100 +234,6 @@ def get_resident_id(resident_name):
         return result[0] if result else None
 
 
-def fetch_medications_for_resident(resident_name):
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-
-        # Get the resident ID
-        cursor.execute("SELECT id FROM residents WHERE name = ?", (resident_name,))
-        resident_id_result = cursor.fetchone()
-        if not resident_id_result:
-            return {}  # No such resident found
-        resident_id = resident_id_result[0]
-
-        # Fetch Scheduled Medications
-        cursor.execute("""
-            SELECT m.medication_name, m.dosage, m.instructions, ts.slot_name
-            FROM medications m
-            JOIN medication_time_slots mts ON m.id = mts.medication_id
-            JOIN time_slots ts ON mts.time_slot_id = ts.id
-            WHERE m.resident_id = ? AND m.medication_type = 'Scheduled'
-        """, (resident_id,))
-        scheduled_results = cursor.fetchall()
-
-        scheduled_medications = {}
-        for med_name, dosage, instructions, time_slot in scheduled_results:
-            decrypted_dosage = decrypt_data(dosage)
-            decrypted_instructions = decrypt_data(instructions)
-            if time_slot not in scheduled_medications:
-                scheduled_medications[time_slot] = {}
-            scheduled_medications[time_slot][med_name] = {
-                'dosage': decrypted_dosage, 'instructions': decrypted_instructions}
-
-        # Fetch PRN Medications
-        cursor.execute("""
-            SELECT medication_name, dosage, instructions
-            FROM medications 
-            WHERE resident_id = ? AND medication_type = 'As Needed (PRN)'
-        """, (resident_id,))
-        prn_results = cursor.fetchall()
-
-        prn_medications = {med_name: {'dosage': decrypt_data(dosage), 'instructions': decrypt_data(instructions)} 
-            for med_name, dosage, instructions in prn_results}
-
-        # Fetch Controlled Medications
-        cursor.execute("""
-            SELECT medication_name, dosage, instructions, count, medication_form
-            FROM medications 
-            WHERE resident_id = ? AND medication_type = 'Controlled'
-        """, (resident_id,))
-        controlled_results = cursor.fetchall()
-
-        controlled_medications = {med_name: {'dosage': decrypt_data(dosage), 'instructions': decrypt_data(instructions), 'count': count, 'form': form} 
-            for med_name, dosage, instructions, count, form in controlled_results}
-
-        # Combine the data into a single structure
-        medications_data = {'Scheduled': scheduled_medications, 'PRN': prn_medications, 'Controlled': controlled_medications}
-        return medications_data
-
-
-def insert_medication(resident_name, medication_name, dosage, instructions, medication_type, selected_time_slots, medication_form=None, count=None):
-    resident_id = get_resident_id(resident_name)
-    if resident_id is not None:
-        with sqlite3.connect('resident_data.db') as conn:
-            cursor = conn.cursor()
-
-            # Encrypt PHI fields
-            encrypted_dosage = encrypt_data(dosage)
-            encrypted_instructions = encrypt_data(instructions)
-
-            # Prepare values for insertion with encrypted data
-            values_to_insert = (resident_id, medication_name, encrypted_dosage, encrypted_instructions, medication_type)
-
-            # Prepare the SQL query based on medication type
-            if medication_type == 'Controlled':
-                # For controlled medications, include medication form and count
-                sql_query = 'INSERT INTO medications (resident_id, medication_name, dosage, instructions, medication_type, medication_form, count) VALUES (?, ?, ?, ?, ?, ?, ?)'
-                # Assume medication_form and count are not considered PHI and do not need encryption
-                values_to_insert += (medication_form, count)
-            else:
-                # For other medication types, use the default query
-                sql_query = 'INSERT INTO medications (resident_id, medication_name, dosage, instructions, medication_type) VALUES (?, ?, ?, ?, ?)'
-
-            # Insert medication details with encrypted PHI
-            cursor.execute(sql_query, values_to_insert)
-            medication_id = cursor.lastrowid
-
-            # Handle time slot relations for scheduled medications
-            if medication_type == 'Scheduled':
-                for slot in selected_time_slots:
-                    cursor.execute('SELECT id FROM time_slots WHERE slot_name = ?', (slot,))
-                    slot_id = cursor.fetchone()[0]
-                    cursor.execute('INSERT INTO medication_time_slots (medication_id, time_slot_id) VALUES (?, ?)', (medication_id, slot_id))
-            
-            conn.commit()
-
-
 def remove_medication(medication_name, resident_name):
     resident_id = get_resident_id(resident_name)
     # Connect to the database
@@ -605,35 +511,6 @@ def remove_non_med_order(order_name, resident_name):
             log_action(config.global_config['logged_in_user'], 'Non-Medication Order Removed', f'{order_name} removed for {resident_name}')
 
 
-def fetch_all_non_medication_orders_for_resident(resident_name):
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-
-        resident_id = get_resident_id(resident_name)
-
-        # Fetch all non-medication orders for the resident ID
-        cursor.execute('''
-            SELECT order_id, order_name, frequency, specific_days, special_instructions,  discontinued_date, last_administered_date
-            FROM non_medication_orders
-            WHERE resident_id = ?
-        ''', (resident_id,))
-        orders = cursor.fetchall()
-
-        # Prepare and return the list of orders
-        non_medication_orders = [{
-            'order_id': order[0],
-            'order_name': order[1],
-            'frequency': order[2],
-            'specific_days': order[3],
-            'special_instructions': order[4],
-           'discontinued_date': order[5],
-           'last_administered_date': order[6]
-           
-        } for order in orders]
-
-    return non_medication_orders
-
-
 def fetch_administrations_for_order(order_id, month, year):
     # Connect to the SQLite database
     conn = sqlite3.connect('resident_data.db')
@@ -857,38 +734,6 @@ def save_emar_data_from_management_window(emar_data):
             ''', (resident_id, medication_id, entry['date'], entry['time_slot'], entry['administered']))
 
         conn.commit()
-
-
-def fetch_emar_data_for_resident(resident_name):
-    today = datetime.now().strftime("%Y-%m-%d")
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-
-        # Get the resident ID
-        cursor.execute("SELECT id FROM residents WHERE name = ?", (resident_name,))
-        resident_id_result = cursor.fetchone()
-        if not resident_id_result:
-            return {}  # No such resident
-        resident_id = resident_id_result[0]
-
-        # Fetch eMAR data for the resident for today
-        cursor.execute("""
-            SELECT m.medication_name, e.time_slot, e.administered
-            FROM emar_chart e
-            JOIN medications m ON e.medication_id = m.id
-            WHERE e.resident_id = ? AND e.date = ?
-        """, (resident_id, today))
-
-        results = cursor.fetchall()
-
-    # Organize eMAR data by medication name and time slot
-    emar_data = {}
-    for med_name, time_slot, administered in results:
-        if med_name not in emar_data:
-            emar_data[med_name] = {}
-        emar_data[med_name][time_slot] = administered
-
-    return emar_data
 
 
 def fetch_emar_data_for_month(resident_name, year_month):

@@ -14,8 +14,8 @@ import pdf
 
 def create_tab_layout(resident_name):
     adl_tab_layout = adl_management.get_adl_tab_layout(resident_name)
-    #emar_tab_layout = emar_management.get_emar_tab_layout(resident_name)
-    emar_tab_layout = [[sg.Text('eMAR Placeholder')]]
+    emar_tab_layout = emar_management.get_emar_tab_layout(resident_name)
+    # emar_tab_layout = [[sg.Text('eMAR Placeholder')]]
     # resident_info_layout = [[sg.Button(button_text='Enter Resident Info Window', key='-INFO_WINDOW-')]]
 
     adl_tab = sg.Tab('ADL', adl_tab_layout)
@@ -109,10 +109,13 @@ def main():
     selected_resident = resident_names[0]
     current_tab_index = 0  # Initialize the tab index
     logged_in_user = config.global_config['logged_in_user']
-    user_initials = api_functions.get_user_initials(API_URL)
     current_date = datetime.now().strftime('%Y-%m-%d')
 
-   
+    if config.global_config['user_initials'] == None:
+        config.global_config['user_initials'] = api_functions.get_user_initials(API_URL)
+    
+    user_initials = config.global_config['user_initials']
+    
     
     window = create_management_window(resident_names, selected_resident)
 
@@ -146,10 +149,9 @@ def main():
         elif event == '-EMAR_SAVE-':
             emar_data = emar_management.retrieve_emar_data_from_window(window, selected_resident)
             audit_description = emar_management.compare_emar_data_and_log_changes(emar_data, selected_resident, current_date)
-            db_functions.save_emar_data_from_management_window(emar_data)
-            logged_in_user = config.global_config['logged_in_user']
-            db_functions.log_action(logged_in_user, f'eMAR Data Saved Resident: {selected_resident}', audit_description)
-            sg.popup("eMAR data saved successfully!")
+            
+            api_functions.save_emar_data_from_management_window(API_URL, emar_data, audit_description)
+            
         elif event == '-CURRENT_ADL_CHART-':
             # Get the current month and year
             current_month_year = datetime.now().strftime("%Y-%m")

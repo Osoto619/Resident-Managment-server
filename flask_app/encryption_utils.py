@@ -82,7 +82,25 @@ fernet = Fernet(key)
 
 
 def encrypt_data(data):
+    '''
+    Encrypt the data with the key
+    
+    Args:
+        data: The data to be encrypted
+    
+    Returns:
+        The encrypted data
+    '''
     return fernet.encrypt(data.encode()).decode()
 
 def decrypt_data(data):
+    '''
+    Decrypt the data with the key
+
+    Args:
+        data: The data to be decrypted
+    
+    Returns:
+        The decrypted data
+    '''
     return fernet.decrypt(data.encode()).decode()  # Decrypt and convert back to string

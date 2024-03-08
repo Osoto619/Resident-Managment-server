@@ -7,7 +7,7 @@ def initialize_database():
     conn = sqlite3.connect('resident_data.db')
     c = conn.cursor()
 
-    # Create residents table
+    
     # CREATE TABLE IF NOT EXISTS users (
     # user_id INT AUTO_INCREMENT PRIMARY KEY,
     # username VARCHAR(255) UNIQUE NOT NULL,
@@ -82,31 +82,31 @@ def initialize_database():
         FOREIGN KEY(time_slot_id) REFERENCES time_slots(id),
         PRIMARY KEY (medication_id, time_slot_id))''')
 
-    # Create Non-Medication Orders Table
-    c.execute('''CREATE TABLE IF NOT EXISTS non_medication_orders (
-        order_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        resident_id INTEGER,
-        order_name TEXT NOT NULL,
-        frequency INTEGER,
-        specific_days TEXT,
-        special_instructions TEXT,
-        discontinued_date DATE DEFAULT NULL,
-        last_administered_date DATE DEFAULT NULL,
-        FOREIGN KEY(resident_id) REFERENCES residents(id))''')
+    # # Create Non-Medication Orders Table
+    # c.execute('''CREATE TABLE IF NOT EXISTS non_medication_orders (
+    #     order_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #     resident_id INTEGER,
+    #     order_name TEXT NOT NULL,
+    #     frequency INTEGER,
+    #     specific_days TEXT,
+    #     special_instructions TEXT,
+    #     discontinued_date DATE DEFAULT NULL,
+    #     last_administered_date DATE DEFAULT NULL,
+    #     FOREIGN KEY(resident_id) REFERENCES residents(id))''')
 
-    # Create eMARS Chart Table
-    c.execute('''CREATE TABLE IF NOT EXISTS emar_chart (
-        chart_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        resident_id INTEGER,
-        medication_id INTEGER,
-        date TEXT,
-        time_slot TEXT,
-        administered TEXT,
-        current_count INTEGER DEFAULT NULL,
-        notes TEXT DEFAULT '',
-        FOREIGN KEY(resident_id) REFERENCES residents(id),
-        FOREIGN KEY(medication_id) REFERENCES medications(id),
-        UNIQUE(resident_id, medication_id, date, time_slot))''')
+    # # Create eMARS Chart Table
+    # c.execute('''CREATE TABLE IF NOT EXISTS emar_chart (
+    #     chart_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #     resident_id INTEGER,
+    #     medication_id INTEGER,
+    #     date TEXT,
+    #     time_slot TEXT,
+    #     administered TEXT,
+    #     current_count INTEGER DEFAULT NULL,
+    #     notes TEXT DEFAULT '',            # CANNOT ADD DEFAULT VALUE TO TEXT FIELD
+    #     FOREIGN KEY(resident_id) REFERENCES residents(id),
+    #     FOREIGN KEY(medication_id) REFERENCES medications(id),
+    #     UNIQUE(resident_id, medication_id, date, time_slot))''')
 
     # Create Non-Medication Administrations Table
     c.execute('''CREATE TABLE IF NOT EXISTS non_med_order_administrations (
