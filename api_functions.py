@@ -263,7 +263,60 @@ def get_user_initials(api_url):
         print(f"Request failed: {e}")
         return ''
 
-# ----------------------------- audit_logs Table ----------------------------- #
+# ----------------------------- user_settings Table ----------------------------- #
+
+def save_user_preferences(api_url, theme, font):
+    """
+    Saves the user's theme and font choice to the server.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        theme (str): The name of the theme to save.
+        font (str): The name of the font to save.
+
+    Returns:
+        bool: True if the preferences were saved successfully, False otherwise.
+    """
+    headers = {'Content-Type': 'application/json'}
+    data = {'theme': theme, 'font': font}
+    try:
+        response = requests.post(f"{api_url}/save_user_preferences", json=data, headers=headers)
+        if response.status_code == 200:
+            print("User preferences saved successfully.")
+            return True
+        else:
+            print(f"Failed to save user preferences: {response.json().get('error', 'Unknown error')}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+
+def get_user_preferences(api_url):
+    """
+    Fetches the user's theme and font preferences from the server without needing authentication.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+
+    Returns:
+        dict: A dictionary containing the user's theme and font preferences.
+    """
+    try:
+        response = requests.get(f"{api_url}/get_user_preferences")
+        if response.status_code == 200:
+            preferences = response.json()
+            print("User preferences fetched successfully:", preferences)
+            return preferences
+        else:
+            print(f"Failed to fetch user preferences: {response.text}")
+            return {'theme': 'Reddit', 'font': 'Helvetica'}  # Default values in case of failure
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return {'theme': 'Reddit', 'font': 'Helvetica'}
+
+
+# ------------------------------ audit_logs Table ------------------------------- #
 
 def log_action(api_url, username, activity, details):
     data = {
@@ -276,8 +329,50 @@ def log_action(api_url, username, activity, details):
         print("Action logged successfully")
     else:
         print("Failed to log action")
+    
 
- # ----------------------------- residents Table ------------------------------ #
+def fetch_audit_logs(api_url, last_10_days=False, username='', action='', date=''):
+    """
+    Fetches audit logs based on filters from the server.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        last_10_days (bool): Whether to filter logs from the last 10 days.
+        username (str): Filter logs by username.
+        action (str): Filter logs by action.
+        date (str): Filter logs by specific date (YYYY-MM-DD).
+
+    Returns:
+        list: A list of audit log entries or an empty list on failure.
+    """
+    
+    # Retrieve the stored token
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+    
+    headers = {'Authorization': f'Bearer {token}'}
+    params = {
+        'last_10_days': last_10_days,
+        'username': username,
+        'action': action,
+        'date': date
+    }
+
+    try:
+        response = requests.get(f"{api_url}/fetch_audit_logs", headers=headers, params=params)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print("Failed to fetch audit logs:", response.text)
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return []
+
+
+ # ----------------------------- residents Table ------------------------------- #
         
 def get_resident_count(api_url):
     """

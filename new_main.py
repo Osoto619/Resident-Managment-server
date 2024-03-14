@@ -11,17 +11,20 @@ import config
 
 
 API_URL = 'http://127.0.0.1:5000'
-# # Function to load and apply the user's theme
-# def apply_user_theme():
-#     user_theme = db_functions.get_user_theme()
-#     sg.theme(user_theme)
+
+# Function to load and apply the user's font and theme settings
+def apply_user_settings():
+    user_settings = api_functions.get_user_preferences(API_URL)
+    config.global_config['theme'] = user_settings['theme']
+    config.global_config['font'] = user_settings['font']
+    sg.theme(user_settings['theme'])
 
 
-# # Apply user theme at application startup
-# apply_user_theme()
+# Apply user theme at application startup
+apply_user_settings()
 
 # FONT = db_functions.get_user_font()
-FONT = 'Arial'
+FONT = config.global_config['font']
 FONT_BOLD = 'Arial Bold'
 
 # def backup_configuration_window():
@@ -168,54 +171,53 @@ def enter_resident_info():
 #     window.close()
 
 
-# def change_theme_window():
-#     global FONT
-#     # Define the theme options available
-#     theme_options = sg.theme_list()
+def change_theme_window():
+    global FONT
+    # Define the theme options available
+    theme_options = sg.theme_list()
 
-#     # Define the font options available
-#     symbol_fonts = [
-#     'Webdings', 'Wingdings', 'Wingdings 2', 'Wingdings 3', 'Symbol', 
-#     'MS Outlook', 'Bookshelf Symbol 7', 'MT Extra', 
-#     'HoloLens MDL2 Assets', 'Segoe MDL2 Assets', 'Segoe UI Emoji', 
-#     'Segoe UI Symbol', 'Marlett', 'Cambria Math', 'Terminal'
-#     # Exclusion List
-#     ]
+    # Define the font options available
+    symbol_fonts = [
+    'Webdings', 'Wingdings', 'Wingdings 2', 'Wingdings 3', 'Symbol', 
+    'MS Outlook', 'Bookshelf Symbol 7', 'MT Extra', 
+    'HoloLens MDL2 Assets', 'Segoe MDL2 Assets', 'Segoe UI Emoji', 
+    'Segoe UI Symbol', 'Marlett', 'Cambria Math', 'Terminal'
+    # Exclusion List
+    ]
 
-#     font_options = [f for f in font.families() if f not in symbol_fonts]
+    font_options = [f for f in font.families() if f not in symbol_fonts]
     
-#     layout = [
-#         [sg.Text(text= 'Select Theme Colors:', font=(FONT, 20))],
-#         [sg.Combo(theme_options, default_value=sg.theme(), key='-THEME-', readonly=True, font=(FONT, 12))],
-#         [sg.Text(text='Select Font:', font=(FONT,20))],
-#         [sg.Combo(font_options, default_value=db_functions.get_user_font(), key='-FONT_CHOICE-', font=(FONT, 12))],
-#         [sg.Text(text='', expand_x=True), sg.Button(button_text= 'Ok', font=(FONT, 15), pad= ((10,10), (12,0))), 
-#          sg.Button(button_text='Cancel', font=(FONT, 15), pad= ((10,10), (12,0))),
-#          sg.Text(text='', expand_x=True)]
-#     ]
+    layout = [
+        [sg.Text(text= 'Select Theme Colors:', font=(FONT, 20))],
+        [sg.Combo(theme_options, default_value=sg.theme(), key='-THEME-', readonly=True, font=(FONT, 12))],
+        [sg.Text(text='Select Font:', font=(FONT,20))],
+        [sg.Combo(font_options, key='-FONT_CHOICE-', default_value=FONT, font=(FONT, 12))],
+        [sg.Text(text='', expand_x=True), sg.Button(button_text= 'Ok', font=(FONT, 15), pad= ((10,10), (12,0))), 
+         sg.Button(button_text='Cancel', font=(FONT, 15), pad= ((10,10), (12,0))),
+         sg.Text(text='', expand_x=True)]
+    ]
 
-#     # Create the theme selection window
-#     theme_window = sg.Window('Change Theme', layout)
+    # Create the theme selection window
+    theme_window = sg.Window('Change Theme', layout)
 
-#     # Event loop for the theme window
-#     while True:
-#         event, values = theme_window.read()
-#         if event in (None, 'Cancel'):
-#             theme_window.close()
-#             break
-#         elif event == 'Ok':
-#             selected_theme = values['-THEME-']
-#             sg.theme(values['-THEME-'])
-#             db_functions.save_user_theme_choice(selected_theme)
+    # Event loop for the theme window
+    while True:
+        event, values = theme_window.read()
+        if event in (None, 'Cancel'):
+            theme_window.close()
+            break
+        elif event == 'Ok':
+            selected_theme = values['-THEME-']
+            sg.theme(values['-THEME-'])
 
-#             selected_font = values['-FONT_CHOICE-']
-#             db_functions.save_user_font_choice(selected_font)
-#             FONT = db_functions.get_user_font()
+            selected_font = values['-FONT_CHOICE-']
+            api_functions.save_user_preferences(API_URL, selected_theme, selected_font)
+            
 
-#             theme_window.close()
-#             break
+            theme_window.close()
+            break
 
-#     theme_window.close()
+    theme_window.close()
 
 
 # def enter_resident_edit():
@@ -437,49 +439,49 @@ def login_window():
 
     window.close()
     
-# def audit_logs_window():
-#     col_widths = [20, 15, 30, 65]  # Adjusted for readability
-#     # Define the layout for the audit logs window
-#     layout = [
-#         [sg.Text('', expand_x=True), sg.Text('Admin Audit Logs', font=(db_functions.get_user_font(), 23)), sg.Text('', expand_x=True)],
-#         [sg.Text("Filter by Username:"), sg.InputText(key='-USERNAME_FILTER-', size=14)],
-#         [sg.Text("Filter by Action:"), sg.Combo(['Login', 'Logout', 'Resident Added', 'User Created', 'New Medication', 'Add Non-Medication Order', 'Non-Medication Order Administered'], key='-ACTION_FILTER-', readonly=True)],
-#         [sg.Text("Filter by Date (YYYY-MM-DD):"), sg.InputText(key='-DATE_FILTER-', enable_events=True, size=10), sg.CalendarButton("Choose Date", target='-DATE_FILTER-', close_when_date_chosen=True, format='%Y-%m-%d')],
-#         [sg.Button("Apply Filters"), sg.Button("Reset Filters")],
-#         [sg.Table(headings=['Date', 'Username', 'Action', 'Description'], values=[], key='-AUDIT_LOGS_TABLE-', auto_size_columns=False, display_row_numbers=True, num_rows=20, col_widths=col_widths, enable_click_events=True, select_mode=sg.TABLE_SELECT_MODE_BROWSE)],
-#         [sg.Button("Close")]
-#     ]
+def audit_logs_window():
+    col_widths = [20, 15, 30, 65]  # Adjusted for readability
+    # Define the layout for the audit logs window
+    layout = [
+        [sg.Text('', expand_x=True), sg.Text('Admin Audit Logs', font=(FONT, 23)), sg.Text('', expand_x=True)],
+        [sg.Text("Filter by Username:"), sg.InputText(key='-USERNAME_FILTER-', size=14)],
+        [sg.Text("Filter by Action:"), sg.Combo(['Login', 'Logout', 'Resident Added', 'User Created', 'Medication Added', 'Add Non-Medication Order', 'Non-Medication Order Administered'], key='-ACTION_FILTER-', readonly=True)],
+        [sg.Text("Filter by Date (YYYY-MM-DD):"), sg.InputText(key='-DATE_FILTER-', enable_events=True, size=10), sg.CalendarButton("Choose Date", target='-DATE_FILTER-', close_when_date_chosen=True, format='%Y-%m-%d')],
+        [sg.Button("Apply Filters"), sg.Button("Reset Filters")],
+        [sg.Table(headings=['Date', 'Username', 'Action', 'Description'], values=[], key='-AUDIT_LOGS_TABLE-', auto_size_columns=False, display_row_numbers=True, num_rows=20, col_widths=col_widths, enable_click_events=True, select_mode=sg.TABLE_SELECT_MODE_BROWSE)],
+        [sg.Button("Close")]
+    ]
 
-#     window = sg.Window("Audit Logs", layout, finalize=True)
+    window = sg.Window("Audit Logs", layout, finalize=True)
 
-#     # Function to load audit logs
-#     def load_audit_logs(username_filter='', action_filter='', date_filter=''):
-#         logs = db_functions.fetch_audit_logs(last_10_days=True, username=username_filter, action=action_filter, date=date_filter)
-#         table_data = [[log['date'], log['username'], log['action'], log['description']] for log in logs]
-#         window['-AUDIT_LOGS_TABLE-'].update(values=[[log['date'], log['username'], log['action'], log['description']] for log in logs])
-#         return table_data
+    # Function to load audit logs
+    def load_audit_logs(username_filter='', action_filter='', date_filter=''):
+        logs = api_functions.fetch_audit_logs(API_URL, last_10_days=True, username=username_filter, action=action_filter, date=date_filter)
+        table_data = [[log['date'], log['username'], log['action'], log['description']] for log in logs]
+        window['-AUDIT_LOGS_TABLE-'].update(values=[[log['date'], log['username'], log['action'], log['description']] for log in logs])
+        return table_data
 
-#     original_table_data = load_audit_logs()  # Initial loading of logs
+    original_table_data = load_audit_logs()  # Initial loading of logs
 
-#     while True:
-#         event, values = window.read()
-#         if event == sg.WINDOW_CLOSED or event == "Close":
-#             break
-#         elif event[0] == '-AUDIT_LOGS_TABLE-' and event[1] == '+CLICKED+':
-#             row_index = event[2][0]  # Get the row index from the event tuple.
-#             # Access the clicked row's data using the row_index from your original dataset.
-#             clicked_row_data = original_table_data[row_index]
-#             description = clicked_row_data[3]  # Assuming the description is in the fourth column.
-#             sg.popup_scrolled(description, title='Detailed Description', size=(50, 10))
-#         elif event == "Apply Filters":
-#             original_table_data = load_audit_logs(username_filter=values['-USERNAME_FILTER-'], action_filter=values['-ACTION_FILTER-'], date_filter=values['-DATE_FILTER-'])
-#         elif event == "Reset Filters":
-#             window['-USERNAME_FILTER-'].update('')
-#             window['-ACTION_FILTER-'].update('')
-#             window['-DATE_FILTER-'].update('')
-#             original_table_data = load_audit_logs()  # Reload logs without filters
+    while True:
+        event, values = window.read()
+        if event == sg.WINDOW_CLOSED or event == "Close":
+            break
+        elif event[0] == '-AUDIT_LOGS_TABLE-' and event[1] == '+CLICKED+':
+            row_index = event[2][0]  # Get the row index from the event tuple.
+            # Access the clicked row's data using the row_index from your original dataset.
+            clicked_row_data = original_table_data[row_index]
+            description = clicked_row_data[3]  # Assuming the description is in the fourth column.
+            sg.popup_scrolled(description, title='Detailed Description', size=(50, 10))
+        elif event == "Apply Filters":
+            original_table_data = load_audit_logs(username_filter=values['-USERNAME_FILTER-'], action_filter=values['-ACTION_FILTER-'], date_filter=values['-DATE_FILTER-'])
+        elif event == "Reset Filters":
+            window['-USERNAME_FILTER-'].update('')
+            window['-ACTION_FILTER-'].update('')
+            window['-DATE_FILTER-'].update('')
+            original_table_data = load_audit_logs()  # Reload logs without filters
 
-#     window.close()
+    window.close()
 
 
 def display_welcome_window(num_of_residents_local, show_login=False):
@@ -561,10 +563,10 @@ def display_welcome_window(num_of_residents_local, show_login=False):
                 window.hide()
                 resident_management.main()
                 window.un_hide()   
-        # elif event == 'Change Theme':
-        #     window.close()
-        #     change_theme_window()
-        #     display_welcome_window(db_functions.get_resident_count())
+        elif event == 'Change Theme':
+            window.close()
+            change_theme_window()
+            display_welcome_window(num_of_residents_local)
         # elif event == 'Edit Resident':
         #     window.close()
         #     enter_resident_edit()
@@ -573,10 +575,10 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         #     window.hide
         #     remove_user_window()
         #     window.un_hide()
-        # elif event == 'View Audit Logs':
-        #     window.hide()
-        #     audit_logs_window()
-        #     window.un_hide()
+        elif event == 'View Audit Logs':
+            window.hide()
+            audit_logs_window()
+            window.un_hide()
         # elif event == 'Data Backup Setup':
         #     window.hide()
         #     backup_configuration_window()

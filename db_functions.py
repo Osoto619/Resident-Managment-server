@@ -149,25 +149,7 @@ def get_user_theme():
         cursor = conn.cursor()
         cursor.execute("SELECT setting_value FROM user_settings WHERE setting_name = 'theme'")
         result = cursor.fetchone()
-        return result[0] if result else 'Reddit'  # Replace 'DarkBlue' with your default theme
-
-
-# Function to save theme choice
-def save_user_theme_choice(theme):
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        # Check if the theme setting already exists
-        cursor.execute('SELECT COUNT(*) FROM user_settings WHERE setting_name = "theme"')
-        exists = cursor.fetchone()[0] > 0
-
-        if exists:
-            # Update the existing theme setting
-            cursor.execute('UPDATE user_settings SET setting_value = ? WHERE setting_name = "theme"', (theme,))
-        else:
-            # Insert a new theme setting
-            cursor.execute('INSERT INTO user_settings (setting_name, setting_value) VALUES ("theme", ?)', (theme,))
-
-        conn.commit()
+        return result[0] if result else 'Reddit'
 
 
 def get_user_font():

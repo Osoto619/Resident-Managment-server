@@ -34,7 +34,6 @@ def initialize_database():
 # )
 
 
-
     # Create table for user settings
     c.execute('''CREATE TABLE IF NOT EXISTS user_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

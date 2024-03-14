@@ -5,7 +5,7 @@ import mysql.connector
 from mysql.connector import Error
 import bcrypt
 from encryption_utils import encrypt_data, decrypt_data
-from datetime import datetime
+from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -74,7 +74,67 @@ def get_db_connection():
         print(f"Error: '{err}'")
     return connection
 
-# --------------------------------- users Table --------------------------------- #
+# -------------------------------- user_settings Table -------------------------------- #
+
+@app.route('/save_user_preferences', methods=['POST'])
+def save_user_preferences():
+    data = request.json
+    theme = data.get('theme')
+    font = data.get('font')
+    
+    if not theme or not font:
+        return jsonify({'error': 'Theme or Font not provided'}), 400
+
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # Save theme setting
+            cursor.execute('SELECT COUNT(*) FROM user_settings WHERE setting_name = "theme"')
+            if cursor.fetchone()[0] > 0:
+                cursor.execute('UPDATE user_settings SET setting_value = %s WHERE setting_name = "theme"', (theme,))
+            else:
+                cursor.execute('INSERT INTO user_settings (setting_name, setting_value) VALUES ("theme", %s)', (theme,))
+
+            # Save font setting
+            cursor.execute('SELECT COUNT(*) FROM user_settings WHERE setting_name = "font"')
+            if cursor.fetchone()[0] > 0:
+                cursor.execute('UPDATE user_settings SET setting_value = %s WHERE setting_name = "font"', (font,))
+            else:
+                cursor.execute('INSERT INTO user_settings (setting_name, setting_value) VALUES ("font", %s)', (font,))
+
+            conn.commit()
+
+        return jsonify({'message': 'User preferences saved successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn.is_connected():
+            conn.close()
+
+
+@app.route('/get_user_preferences', methods=['GET'])
+def get_user_preferences():
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            preferences = {'theme': 'Reddit', 'font': 'Helvetica'}  # Default values
+
+            cursor.execute("SELECT setting_name, setting_value FROM user_settings WHERE setting_name IN ('theme', 'font')")
+            results = cursor.fetchall()
+
+            for setting_name, setting_value in results:
+                if setting_name in preferences:
+                    preferences[setting_name] = setting_value
+
+        return jsonify(preferences), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn.is_connected():
+            conn.close()
+
+
+# ---------------------------------- users Table --------------------------------------- #
 
 @app.route('/is_first_time_setup', methods=['GET'])
 def is_first_time_setup():
@@ -322,6 +382,49 @@ def handle_log_action():
     else:
         return jsonify({"error": "Failed to log action"}), 500
 
+
+@app.route('/fetch_audit_logs', methods=['GET'])
+@jwt_required()
+def fetch_audit_logs():
+    last_10_days = request.args.get('last_10_days', type=bool, default=False)
+    username = request.args.get('username', default='')
+    action = request.args.get('action', default='')
+    date = request.args.get('date', default='')
+
+    query = "SELECT log_time, username, activity, details FROM audit_logs WHERE 1=1"
+    params = []
+
+    if last_10_days:
+        ten_days_ago = (datetime.now() - timedelta(days=10)).strftime('%Y-%m-%d')
+        query += " AND log_time >= %s"
+        params.append(ten_days_ago)
+
+    if username:
+        query += " AND username LIKE %s"
+        params.append(f"%{username}%")
+
+    if action:
+        query += " AND activity = %s"
+        params.append(action)
+
+    if date:
+        query += " AND DATE(log_time) = %s"
+        params.append(date)
+
+    query += " ORDER BY log_time DESC"
+
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(query, params)
+            logs = cursor.fetchall()
+            decrypted_logs = [{'date': log[0].strftime('%Y-%m-%d %H:%M:%S'), 'username': log[1], 'action': log[2], 'description': decrypt_data(log[3])} for log in logs]
+            return jsonify(decrypted_logs), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn.is_connected():
+            conn.close()
 
 # --------------------------------- residents Table --------------------------------- #
 
