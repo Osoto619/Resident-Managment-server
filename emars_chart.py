@@ -4,7 +4,12 @@ from datetime import datetime
 import db_functions
 import api_functions
 
+# Heroku API URL
+#API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
+
+# Local API URL
 API_URL = 'http://127.0.0.1:5000'
+
 
 # Define the width of the label cell and regular cells
 label_cell_width = 12  # This may need to be adjusted to align perfectly
@@ -136,7 +141,6 @@ def create_controlled_details_window(event_key, resident_name, year_month, medic
     window.close()
 
 
-
 def is_after_discontinuation(year_month, discontinue_date):
     """
     Check if the year_month is after the discontinue_date.
@@ -195,6 +199,10 @@ def show_emar_chart(resident_name, year_month):
 
     # Fetch eMAR data for the month
     emar_data = api_functions.fetch_emar_data_for_month(API_URL, resident_name, year_month)
+
+    # print(f'RESIDENT NAME: {resident_name}')
+    # print(f'YEAR MONTH: {year_month}')
+    # print(f'EMAR DATA: {emar_data}')
 
     # Fetch discontinued medications with their discontinuation dates
     discontinued_medications = api_functions.fetch_discontinued_medications(API_URL, resident_name)
@@ -310,10 +318,25 @@ def show_emar_chart(resident_name, year_month):
     # Create the window
     window = sg.Window(' CareTech Monthly eMARS', layout, finalize=True, resizable=True)
 
-    # Convert the eMAR data into a more convenient structure
-    emar_data_dict = {}
+    # # Convert the eMAR data into a more convenient structure
+    # emar_data_dict = {}
     
-    for med_name, date, time_slot, administered in emar_data:
+    # for med_name, date, time_slot, administered in emar_data:
+    #     if med_name not in emar_data_dict:
+    #         emar_data_dict[med_name] = {}
+    #     if date not in emar_data_dict[med_name]:
+    #         emar_data_dict[med_name][date] = {}
+    #     emar_data_dict[med_name][date][time_slot] = administered
+
+    # Correctly restructuring the eMAR data for GUI update
+    emar_data_dict = {}
+
+    for entry in emar_data:  # Directly using the list of dictionaries from emar_data
+        med_name = entry['medication_name']
+        date = entry['chart_date']
+        time_slot = entry['time_slot']
+        administered = entry['administered']
+
         if med_name not in emar_data_dict:
             emar_data_dict[med_name] = {}
         if date not in emar_data_dict[med_name]:
@@ -326,18 +349,29 @@ def show_emar_chart(resident_name, year_month):
     # print('-----------------------')
     # print(new_structure)
 
-    # # print(emar_data_dict)
+    # print(f'EMAR DATA DICT: {emar_data_dict}')
 
-    # If data is found, update the layout fields accordingly
-    for med_name, med_info in filtered_new_structure.items():
-        if med_info['type'] == 'Scheduled':
-            # Handle scheduled medications
-            for date, slots in emar_data_dict.get(med_name, {}).items():
-                day = int(date.split('-')[2])  # Extract the day from 'YYYY-MM-DD'
-                for time_slot, administered in slots.items():
-                    key = f'-{med_name}_{time_slot}-{day}-'
-                    if window[key]:
-                        window[key].update(administered)
+    # # If data is found, update the layout fields accordingly
+    # for med_name, med_info in filtered_new_structure.items():
+    #     if med_info['type'] == 'Scheduled':
+    #         # Handle scheduled medications
+    #         for date, slots in emar_data_dict.get(med_name, {}).items():
+    #             day = int(date.split('-')[2])  # Extract the day from 'YYYY-MM-DD'
+    #             for time_slot, administered in slots.items():
+    #                 key = f'-{med_name}_{time_slot}-{day}-'
+    #                 if window[key]:
+    #                     window[key].update(administered)
+
+    for med_name, dates_info in emar_data_dict.items():
+        for date, slots in dates_info.items():
+            day = int(date.split('-')[2])  # Extract the day from 'YYYY-MM-DD'
+            for time_slot, administered in slots.items():
+                key = f'-{med_name}_{time_slot}-{day}-'
+                if key in window.AllKeysDict:  # Check if key exists
+                    window[key].update(administered)
+                else:
+                    print(f"Key not found in window: {key}")
+
 
         # Update layout for PRN medications
     for med_name in filtered_prn_structure.keys():

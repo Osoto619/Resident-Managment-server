@@ -17,12 +17,6 @@ def initialize_database():
     # is_temp_password TINYINT(1) DEFAULT 1
     # )
 
-    # Create table for data backup values
-    c.execute('''CREATE TABLE IF NOT EXISTS backup_config (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    backup_folder TEXT NOT NULL,
-    backup_frequency TEXT NOT NULL,
-    last_backup_date TEXT)''')
 
     # Create table for audit_logs
 # CREATE TABLE IF NOT EXISTS audit_logs (

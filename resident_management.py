@@ -10,11 +10,12 @@ from emars_chart import show_emar_chart
 from new_main import API_URL, FONT, FONT_BOLD
 import config
 import pdf
+from progress_bar import show_progress_bar, show_loading_window
 
 
-def create_tab_layout(resident_name):
-    adl_tab_layout = adl_management.get_adl_tab_layout(resident_name)
-    emar_tab_layout = emar_management.get_emar_tab_layout(resident_name)
+def create_tab_layout(resident_name, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data):
+    adl_tab_layout = adl_management.get_adl_tab_layout(resident_name, existing_adl_data, resident_care_levels)
+    emar_tab_layout = emar_management.get_emar_tab_layout(resident_name, all_medications_data, active_medications, non_medication_orders, existing_emar_data)
     # emar_tab_layout = [[sg.Text('eMAR Placeholder')]]
     # resident_info_layout = [[sg.Button(button_text='Enter Resident Info Window', key='-INFO_WINDOW-')]]
 
@@ -25,10 +26,10 @@ def create_tab_layout(resident_name):
     return [adl_tab, emar_tab]
 
 
-def create_management_window(resident_names, selected_resident, default_tab_index=0):
+def create_management_window(resident_names, selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data, default_tab_index=0):
     resident_selector = sg.Combo(resident_names, default_value=selected_resident, key='-RESIDENT-', readonly=True, enable_events=True, font=('Helvetica', 11))
 
-    tabs = create_tab_layout(selected_resident)
+    tabs = create_tab_layout(selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data)
     tab_group = sg.TabGroup([tabs], key='-TABGROUP-', font=('Arial', 11))
 
     current_date = datetime.now().strftime("%m-%d-%y")  # Get today's date
@@ -104,20 +105,20 @@ def open_discontinue_medication_window(resident_name):
     window.close()
 
 
-def main():
-    resident_names = api_functions.get_resident_names(API_URL)
+def main(resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data):
+    # resident_names = api_functions.get_resident_names(API_URL)
     selected_resident = resident_names[0]
     current_tab_index = 0  # Initialize the tab index
     logged_in_user = config.global_config['logged_in_user']
     current_date = datetime.now().strftime('%Y-%m-%d')
 
-    if config.global_config['user_initials'] == None:
-        config.global_config['user_initials'] = api_functions.get_user_initials(API_URL)
+    # if config.global_config['user_initials'] == None:
+    #     config.global_config['user_initials'] = api_functions.get_user_initials(API_URL)
     
     user_initials = config.global_config['user_initials']
     
     
-    window = create_management_window(resident_names, selected_resident)
+    window = create_management_window(resident_names, selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data)
 
     while True:
         event, values = window.read(timeout=1000)
@@ -131,7 +132,11 @@ def main():
             adl_data = adl_management.retrieve_adl_data_from_window(window,selected_resident)
             existing_adl_data = api_functions.fetch_adl_data_for_resident(API_URL, selected_resident)
             audit_description = adl_management.generate_adl_audit_description(adl_data, existing_adl_data)
-            api_functions.save_adl_data_from_management_window(API_URL, selected_resident, adl_data, audit_description)
+            succes = show_progress_bar(api_functions.save_adl_data_from_management_window, API_URL, selected_resident, adl_data, audit_description)    #api_functions.save_adl_data_from_management_window(API_URL, selected_resident, adl_data, audit_description)
+            if succes:
+                sg.popup('ADL Data Saved Successfully')
+            else:
+                sg.popup('Failed to save ADL Data')
         elif event.startswith('-CHECK'): # Checkbox for Scheduled Medications IputText
              
              # Split the event string
@@ -150,7 +155,13 @@ def main():
             emar_data = emar_management.retrieve_emar_data_from_window(window, selected_resident)
             audit_description = emar_management.compare_emar_data_and_log_changes(emar_data, selected_resident, current_date)
             
-            api_functions.save_emar_data_from_management_window(API_URL, emar_data, audit_description)
+            #api_functions.save_emar_data_from_management_window(API_URL, emar_data, audit_description)
+            succes = show_progress_bar(api_functions.save_emar_data_from_management_window, API_URL, emar_data, audit_description)
+            if succes:
+                sg.popup('eMAR Data Saved Successfully')
+            else:
+                sg.popup('Failed to save eMAR Data')
+
             
         elif event == '-CURRENT_ADL_CHART-':
             # Get the current month and year
@@ -201,7 +212,9 @@ def main():
         elif event == '-ADD_MEDICATION-':
             window.close()
             emar_management.add_medication_window(selected_resident)
-            window = create_management_window(resident_names,selected_resident, default_tab_index=1)
+            results = show_loading_window(API_URL)
+            resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data = results
+            window = create_management_window(resident_names,selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data,default_tab_index=1)
         elif event == '-EDIT_MEDICATION-':
             window.close()
             edit_med_win = emar_management.edit_medication_window(selected_resident)

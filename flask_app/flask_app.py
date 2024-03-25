@@ -58,18 +58,20 @@ def get_resident_id(resident_name):
 def get_db_connection():
     connection = None
     try:
-        # connection = mysql.connector.connect(
-        #     user='oscar',
-        #     password='Discorama619!',
-        #     host='10.0.0.53',
-        #     database='resident_data'
-        # )
+        # Local MySQL connection
         connection = mysql.connector.connect(
             user='oscar',
-            password='rir718hhzrthzr',
-            host='34.94.226.95',
+            password='Discorama619!',
+            host='127.0.0.1',
             database='resident_data'
         )
+        # Google Cloud MySQL connection
+        # connection = mysql.connector.connect(
+        #     user='oscar',
+        #     password='rir718hhzrthzr',
+        #     host='34.94.226.95',
+        #     database='resident_data'
+        # )
     except Error as err:
         print(f"Error: '{err}'")
     return connection

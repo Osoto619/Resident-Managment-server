@@ -4,5 +4,5 @@ global_config = {
     'user_initials': None,
     'is_first_time_setup': None,
     'theme': None,
-    'font_size': None
+    'font': None
 }

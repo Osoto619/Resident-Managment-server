@@ -1,0 +1,12 @@
+SET SQL_SAFE_UPDATES = 0;
+delete from adl_chart;
+delete from audit_logs;
+delete from emar_chart;
+delete from medication_time_slots;
+delete from medications;
+delete from time_slots;
+delete from non_medication_orders;
+delete from user_settings;
+delete from residents;
+delete from users;
+SET SQL_SAFE_UPDATES = 1;

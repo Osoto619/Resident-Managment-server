@@ -306,7 +306,7 @@ def get_user_preferences(api_url):
         response = requests.get(f"{api_url}/get_user_preferences")
         if response.status_code == 200:
             preferences = response.json()
-            print("User preferences fetched successfully:", preferences)
+            #print("User preferences fetched successfully:", preferences)
             return preferences
         else:
             print(f"Failed to fetch user preferences: {response.text}")
@@ -587,7 +587,6 @@ def save_adl_data_from_management_window(api_url, resident_name, adl_data, audit
         response = requests.post(f"{api_url}/save_adl_data_from_management_window", json=data, headers=headers)
         if response.status_code == 200:
             print("ADL data saved successfully.")
-            sg.popup("Data saved successfully!")
             return True
         else:
             print("Failed to save ADL data:", response.json())
@@ -904,7 +903,194 @@ def save_emar_data_from_management_window(api_url, emar_data, audit_description)
         print(f"Request failed: {e}")
         return {}
 
-# API_URL = 'http://127.0.0.1:5000'
 
-# emar = fetch_emar_data_for_resident(API_URL, 'Dirty Diana')
-# print(emar)
+# --------------------------------- activities Table ----------------------------------------- #
+
+def fetch_activities(api_url):
+    """
+    Fetches activities from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+
+    Returns:
+        list: A list of activities, or an empty list on failure.
+    """
+    try:
+        response = requests.get(f"{api_url}/fetch_activities")
+        if response.status_code == 200:
+            activities_data = response.json()
+            return activities_data.get('activities', [])
+        else:
+            print("Failed to fetch activities:", response.text)
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return []
+
+
+def add_activity(api_url, activity_name):
+    """
+    Adds a new activity to the database via the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        activity_name (str): The name of the activity to add.
+
+    Returns:
+        bool: True if the activity was added successfully, False otherwise.
+    """
+    full_url = f"{api_url}/add_activity"
+    data = {'activity_name': activity_name}
+
+    try:
+        response = requests.post(full_url, json=data)
+        if response.status_code == 201:
+            print("Activity added successfully.")
+            return True
+        else:
+            print(f"Failed to add activity: {response.json().get('error', 'Unknown error')}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+
+def remove_activity(api_url, activity_name):
+    """
+    Calls the API to remove an activity.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        activity_name (str): The name of the activity to remove.
+
+    Returns:
+        bool: True if the activity was successfully removed, False otherwise.
+    """
+    data = {'activity_name': activity_name}
+    try:
+        response = requests.post(f"{api_url}/remove_activity", json=data)
+        if response.status_code == 200:
+            print(f"Successfully removed activity: {activity_name}")
+            return True
+        else:
+            print(f"Failed to remove activity: {response.json().get('error', 'Unknown error')}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+# --------------------------------- meals Table --------------------------------------------- #
+    
+def fetch_meal_data(api_url, meal_type):
+    """
+    Fetches meal data for a specific meal type from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        meal_type (str): The type of meal to fetch data for ('breakfast', 'lunch', or 'dinner').
+
+    Returns:
+        list: A list of meals for the specified type, each meal as a list resembling the original tuple format, or an empty list on failure.
+    """
+    try:
+        # Construct the URL with the meal type parameter
+        full_url = f"{api_url}/fetch_meal_data/{meal_type}"
+        response = requests.get(full_url)
+        if response.status_code == 200:
+            meal_data = response.json()['meals']
+            # Process the meal data if any additional client-side processing is required
+            return meal_data
+        else:
+            print(f"Failed to fetch {meal_type} data: {response.text}")
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return []
+
+
+def fetch_raw_meal_data(api_url, meal_type):
+    """
+    Fetches raw meal data for a specific meal type from the Flask API, 
+    including semicolons and, for breakfast, the default drink.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        meal_type (str): The type of meal to fetch data for ('breakfast', 'lunch', or 'dinner').
+
+    Returns:
+        list: A list of raw meal strings for the specified type, 
+              with default drink included for breakfast, or an empty list on failure.
+    """
+    full_url = f"{api_url}/fetch_raw_meal_data/{meal_type}"
+    try:
+        response = requests.get(full_url)
+        if response.status_code == 200:
+            meal_data = response.json()['meals']
+            return meal_data
+        else:
+            print(f"Failed to fetch raw {meal_type} data: {response.text}")
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return []
+
+
+def add_meal(api_url, meal_type, meal_option, default_drink):
+    """
+    Adds a new meal option to the database via the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        meal_type (str): The type of meal to add the option to ('breakfast', 'lunch', or 'dinner').
+        meal_option (str): The meal items.
+        default_drink (str): The default drink option for the meal.
+
+    Returns:
+        bool: True if the meal option was added successfully, False otherwise.
+    """
+    full_url = f"{api_url}/add_meal"
+    data = {'meal_type': meal_type, 'meal_option': meal_option, 'default_drink': default_drink}
+
+    try:
+        response = requests.post(full_url, json=data)
+        if response.status_code == 201:
+            print(f"Meal option added successfully: {meal_option}")
+            return True
+        else:
+            print(f"Failed to add meal option: {response.json().get('error', 'Unknown error')}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+
+def remove_meal(api_url, meal_type, meal_option):
+    """
+    Removes a meal from the database via the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        meal_type (str): The type of the meal (e.g., 'breakfast', 'lunch', 'dinner').
+        meal_option (str): The exact option string of the meal to be removed.
+
+    Returns:
+        bool: True if the meal was successfully removed, False otherwise.
+    """
+    try:
+        # Construct the URL with the meal type
+        full_url = f"{api_url}/remove_meal/{meal_type}"
+        headers = {'Content-Type': 'application/json'}
+        data = {'meal_option': meal_option}
+        
+        response = requests.post(full_url, json=data, headers=headers)
+        
+        if response.status_code == 200:
+            print("Meal removed successfully.")
+            return True
+        else:
+            print(f"Failed to remove meal: {response.text}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False

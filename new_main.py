@@ -1,16 +1,23 @@
 import PySimpleGUI as sg
 import api_functions
 import resident_management
-import encryption_utils
-import os
-import shutil
 from datetime import datetime, timedelta, date
 from tkinter import font
 import sys
 import config
+import calendar
+from pdf import create_menu, create_calendar
+import tracker_reminder
+import threading
+import queue
+from progress_bar import show_progress_bar, show_loading_window, load_resident_management_data
 
+# Heroku API URL
+# API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
 
+# Local API URL
 API_URL = 'http://127.0.0.1:5000'
+
 
 # Function to load and apply the user's font and theme settings
 def apply_user_settings():
@@ -23,77 +30,8 @@ def apply_user_settings():
 # Apply user theme at application startup
 apply_user_settings()
 
-# FONT = db_functions.get_user_font()
 FONT = config.global_config['font']
 FONT_BOLD = 'Arial Bold'
-
-# def backup_configuration_window():
-#     layout = [
-#         [sg.Text("Backup Folder:"), sg.InputText(key='BackupFolder'), sg.FolderBrowse()],
-#         [sg.Text("Backup Frequency:"), sg.Combo(['Daily', 'Weekly'], default_value='Weekly', key='BackupFrequency')],
-#         [sg.Text("It's highly recommended to choose a backup location that is external to your computer, such as a cloud storage service or an external hard drive. This ensures that your data remains safe even in the event of hardware failure, theft, or other physical damages to your computer.", size=(60, 4))],
-#         [sg.Button("Save"), sg.Button("Cancel")]
-#     ]
-    
-#     window = sg.Window("Backup Configuration", layout)
-    
-#     while True:
-#         event, values = window.read()
-#         if event == sg.WINDOW_CLOSED or event == "Cancel":
-#             break
-#         elif event == "Save":
-            
-#             db_functions.save_backup_configuration(values['BackupFolder'], values['BackupFrequency'])
-#             sg.popup("Configuration Saved. Automatic backups will be performed accordingly.")
-#             break
-
-#     window.close()
-
-# def is_backup_due():
-#     backup_config = db_functions.get_backup_configuration()
-#     if not backup_config:
-#         return False
-
-#     last_backup_date = backup_config['last_backup_date']
-#     today = datetime.now().date()
-
-#     if backup_config['backup_frequency'] == 'Daily' and (today - last_backup_date).days >= 1:
-#         return True
-#     elif backup_config['backup_frequency'] == 'Weekly' and (today - last_backup_date).days >= 7:
-#         return True
-
-#     return False
-
-
-# def perform_backup():
-#     # Retrieve backup configuration
-#     backup_config = db_functions.get_backup_configuration()
-#     if not backup_config:
-#         print("Backup configuration not found.")
-#         return
-    
-#     backup_folder = backup_config['backup_folder']
-#     database_path = 'resident_data.db'  # Path to your SQLite database
-#     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-#     backup_filename = f"backup_{current_time}.db"
-    
-#     # Construct the full path for the backup file
-#     backup_path = os.path.join(backup_folder, backup_filename)
-    
-#     try:
-#         # Copy the database file to the backup folder
-#         shutil.copyfile(database_path, backup_path)
-#         print(f"Backup successful: {backup_path}")
-#     except Exception as e:
-#         print(f"Error during backup: {e}")
-
-# def startup_routine():
-#     if is_backup_due():
-#         perform_backup()
-#         db_functions.update_last_backup_date()
-#     #     print("Backup performed successfully.")
-#     # else:
-#     #     print("No backup needed at this time.")
 
 # ----------------- Resident Management Functions -----------------
 
@@ -359,6 +297,7 @@ def add_user_window():
 
     window.close()
 
+
 # def remove_user_window():
 #     # Fetch usernames for the dropdown
 #     usernames = db_functions.get_all_usernames()
@@ -398,6 +337,7 @@ def add_user_window():
 
 #     window.close()
 
+
 def login_window():
     
     layout = [
@@ -414,38 +354,66 @@ def login_window():
         event, values = window.read()
         if event in (sg.WIN_CLOSED, "Exit"):
             sys.exit(0)
+        # elif event == "Login":
+        #     username = values['username']
+        #     password = values['password']
+            
+        #     if api_functions.validate_login(API_URL, username, password):
+                
+        #         # Log the successful login action
+        #         config.global_config['logged_in_user'] = username
+        #         # api_functions.log_action(API_URL, username, "Login", f"{username}")
+        #         if api_functions.needs_password_reset(API_URL, username):
+        #           window.close()
+        #           new_user_setup_window(username)
+        #           display_welcome_window(api_functions.get_resident_count(API_URL),show_login=False)
+           
+        #         else:
+        #             # Proceed to main application
+        #             sg.popup("Login Successful!", title="Success")
+        #             break
+        #     else:
+        #         sg.popup("Invalid username or password.", title="Error")
+        
         elif event == "Login":
             username = values['username']
             password = values['password']
             
+            # Wrap the validate_login function call with show_progress_bar
+            login_success = show_progress_bar(api_functions.validate_login, API_URL, username, password)
             
-            if api_functions.validate_login(API_URL, username, password):
-                
+            if login_success:
                 # Log the successful login action
                 config.global_config['logged_in_user'] = username
-                api_functions.log_action(API_URL, username, "Login", f"{username}")
-                if api_functions.needs_password_reset(API_URL, username):
-                  window.close()
-                  new_user_setup_window(username)
-                  display_welcome_window(api_functions.get_resident_count(API_URL),show_login=False)
-
-                    
+                
+                # Checking if a password reset is needed
+                password_reset_needed = show_progress_bar(api_functions.needs_password_reset, API_URL, username)
+                
+                if password_reset_needed:
+                    window.close()
+                    new_user_setup_window(username)
+                    # Assuming display_welcome_window might also benefit from knowing the resident count
+                    resident_count = show_progress_bar(api_functions.get_resident_count, API_URL)
+                    display_welcome_window(resident_count, show_login=False)
                 else:
                     # Proceed to main application
                     sg.popup("Login Successful!", title="Success")
+                    window.close()
                     break
             else:
                 sg.popup("Invalid username or password.", title="Error")
 
-    window.close()
-    
+
+            window.close()
+
+
 def audit_logs_window():
     col_widths = [20, 15, 30, 65]  # Adjusted for readability
     # Define the layout for the audit logs window
     layout = [
         [sg.Text('', expand_x=True), sg.Text('Admin Audit Logs', font=(FONT, 23)), sg.Text('', expand_x=True)],
         [sg.Text("Filter by Username:"), sg.InputText(key='-USERNAME_FILTER-', size=14)],
-        [sg.Text("Filter by Action:"), sg.Combo(['Login', 'Logout', 'Resident Added', 'User Created', 'Medication Added', 'Add Non-Medication Order', 'Non-Medication Order Administered'], key='-ACTION_FILTER-', readonly=True)],
+        [sg.Text("Filter by Action:"), sg.Combo(['Resident Added', 'User Created', 'Medication Added', 'Add Non-Medication Order', 'Non-Medication Order Administered'], key='-ACTION_FILTER-', readonly=True)],
         [sg.Text("Filter by Date (YYYY-MM-DD):"), sg.InputText(key='-DATE_FILTER-', enable_events=True, size=10), sg.CalendarButton("Choose Date", target='-DATE_FILTER-', close_when_date_chosen=True, format='%Y-%m-%d')],
         [sg.Button("Apply Filters"), sg.Button("Reset Filters")],
         [sg.Table(headings=['Date', 'Username', 'Action', 'Description'], values=[], key='-AUDIT_LOGS_TABLE-', auto_size_columns=False, display_row_numbers=True, num_rows=20, col_widths=col_widths, enable_click_events=True, select_mode=sg.TABLE_SELECT_MODE_BROWSE)],
@@ -483,8 +451,314 @@ def audit_logs_window():
 
     window.close()
 
+# ------------------------------------------------------- menu & activity tables -------------------------------------------------------
+
+def activities_data_window(activities_list):
+    layout = [
+        [sg.Text('Activities Data', font=('Helvetica', 16))],
+        [sg.Listbox(values=sorted(activities_list), size=(40, 10), key='-ACTIVITIES LIST-', enable_events=True)],
+        [sg.Text('Add New Activity:'), sg.InputText(key='-NEW ACTIVITY-')],
+        [sg.Button('Add Activity', key='-ADD ACTIVITY-', font=(FONT, 13)), sg.Button('Remove Selected Activity', key='-REMOVE ACTIVITY-', font=(FONT, 13))],
+        [sg.Button('Exit', font=(FONT, 13))]
+    ]
+
+    window = sg.Window('View/Edit Activities Data', layout, modal=True)
+
+    while True:
+        event, values = window.read()
+        if event == sg.WINDOW_CLOSED or event == 'Exit':
+            break
+        # elif event == '-ADD ACTIVITY-':
+        #     new_activity = values['-NEW ACTIVITY-'].strip().title()
+        #     if new_activity:
+        #         # Call the function to add a new activity
+        #         success = api_functions.add_activity(API_URL, new_activity)
+        #         if success:
+        #             updated_activities = api_functions.fetch_activities(API_URL)
+        #             window['-ACTIVITIES LIST-'].update(values=sorted(updated_activities))
+        #             sg.popup(f'Successfully added activity: {new_activity}')
+        #         else:
+        #             sg.popup_error(f'Failed to add activity: {new_activity}')
+
+        # elif event == '-ADD ACTIVITY-':
+        #     new_activity = values['-NEW ACTIVITY-'].strip().title()
+        #     if new_activity:
+        #         # Initialize Progress Bar Window
+        #         progress_layout = [[sg.Text('Adding new activity...')],
+        #                         [sg.ProgressBar(1000, orientation='h', size=(20, 20), key='-PROGRESS-')]]
+        #         progress_window = sg.Window('Progress', progress_layout, modal=True, finalize=True)
+        #         progress_bar = progress_window['-PROGRESS-']
+                
+        #         # Simulate progress (for actual progress, you'd update this within your operation loop)
+        #         for i in range(500):
+        #             event, values = progress_window.read(timeout=10)
+        #             if event == sg.WIN_CLOSED:
+        #                 break
+        #             progress_bar.UpdateBar(i + 1)
+                
+        #         # Simulate an HTTP request or long operation
+        #         success = api_functions.add_activity(API_URL, new_activity)
+        #         progress_window.close()  # Close the progress bar window
+                
+        #         if success:
+        #             updated_activities = api_functions.fetch_activities(API_URL)
+        #             window['-ACTIVITIES LIST-'].update(values=sorted(updated_activities))
+        #             sg.popup(f'Successfully added activity: {new_activity}')
+        #         else:
+        #             sg.popup_error(f'Failed to add activity: {new_activity}')
+        
+        # elif event == '-ADD ACTIVITY-':
+        #     new_activity = values['-NEW ACTIVITY-'].strip().title()
+        #     if new_activity:
+        #         # Queue to hold the success status
+        #         success_queue = queue.Queue()
+
+        #         # Define the target function for threading to include queue
+        #         def add_activity_thread(queue, api_url, activity):
+        #             success = api_functions.add_activity(api_url, activity)
+        #             queue.put(success)  # Put the success status into the queue
+
+        #         # Initialize Progress Bar Window for indeterminate progress
+        #         progress_layout = [[sg.Text('Processing...')],
+        #                         [sg.ProgressBar(100, orientation='h', size=(20, 20), key='-PROGRESS-')]]
+        #         progress_window = sg.Window('Please Wait', progress_layout, modal=True, keep_on_top=True, finalize=True)
+        #         progress_bar = progress_window['-PROGRESS-']
+
+        #         # Start the add_activity function in a thread
+        #         progress_thread = threading.Thread(target=add_activity_thread, args=(success_queue, API_URL, new_activity), daemon=True)
+        #         progress_thread.start()
+
+        #         while progress_thread.is_alive():
+        #             for i in range(100):
+        #                 event, values = progress_window.read(timeout=10)
+        #                 if event == sg.WIN_CLOSED:
+        #                     break
+        #                 progress_bar.update(i + 1)
+        #             progress_bar.update(0)  # Reset the bar for a continuous loop effect
+                
+        #         progress_window.close()
+
+        #         # Check the operation's success status from the queue
+        #         success = success_queue.get()  # Retrieve the success status
+
+        #         if success:
+        #             updated_activities = api_functions.fetch_activities(API_URL)
+        #             window['-ACTIVITIES LIST-'].update(values=sorted(updated_activities))
+        #             # Reset the input field after successful addition
+        #             window['-NEW ACTIVITY-'].update('')
+        #             sg.popup(f'Successfully added activity: {new_activity}')
+        #         else:
+        #             sg.popup_error(f'Failed to add activity: {new_activity}')
+
+        elif event == '-ADD ACTIVITY-':
+            new_activity = values['-NEW ACTIVITY-'].strip().title()
+            if new_activity:
+                # Use the show_progress_bar function for the add_activity operation
+                success = show_progress_bar(api_functions.add_activity, API_URL, new_activity)
+                
+                if success:
+                    updated_activities = api_functions.fetch_activities(API_URL)
+                    window['-ACTIVITIES LIST-'].update(values=sorted(updated_activities))
+                    sg.popup(f'Successfully added activity: {new_activity}')
+                else:
+                    sg.popup_error(f'Failed to add activity: {new_activity}')
+
+
+
+        elif event == '-REMOVE ACTIVITY-':
+            selected_activity = values['-ACTIVITIES LIST-']
+            if selected_activity:
+                confirm = sg.popup_yes_no(f'Are you sure you want to remove {selected_activity[0]}?')
+                if confirm == 'Yes':
+                    success = api_functions.remove_activity(API_URL, selected_activity[0])
+                    if success:
+                        updated_activities = api_functions.fetch_activities(API_URL)
+                        window['-ACTIVITIES LIST-'].update(values=sorted(updated_activities))
+                        sg.popup(f'Successfully removed activity: {selected_activity[0]}')
+                    else:
+                        sg.popup_error(f'Failed to remove activity: {selected_activity[0]}')
+            else:
+                sg.popup_error('Please select an activity to remove')
+
+    window.close()
+
+
+def meal_data_window(breakfast_list, lunch_list, dinner_list):
+    
+    layout = [
+        [sg.Text('', expand_x=True), sg.Text('Meal Data Management', font=(FONT, 20)), sg.Text('', expand_x=True)],
+        [
+            sg.Column([
+                [sg.Text('Breakfast', font=(FONT, 18))],
+                [sg.Listbox(values=sorted(breakfast_list), size=(60, 25), key='-BREAKFAST LIST-', enable_events=True)],
+                [sg.Text('Line 1:'), sg.InputText(key='-NEW BREAKFAST1-'), ],
+                [sg.Text('Line 2:'), sg.InputText(key='-NEW BREAKFAST2-')],
+                [sg.Text('Breakfast Drink Option:'), sg.InputText(key='-NEW BREAKFAST DEFAULT DRINK-', default_text='Juice/Milk/Coffee')],
+                [sg.Button('Add Breakfast', key='-ADD BREAKFAST-'), sg.Button('Remove Selected Breakfast', key='-REMOVE BREAKFAST-')]
+            ]),
+            sg.VSeparator(),
+            sg.Column([
+                [sg.Text('Lunch', font=(FONT, 18))],
+                [sg.Listbox(values=sorted(lunch_list), size=(60, 25), key='-LUNCH LIST-', enable_events=True)],
+                [sg.Text('Line 1:'), sg.InputText(key='-NEW LUNCH1-')],
+                [sg.Text('Line 2:'), sg.InputText(key='-NEW LUNCH2-')],
+                [sg.Text('Dessert:'), sg.InputText(key='-NEW LUNCH DESSERT-')],
+                [sg.Button('Add Lunch', key='-ADD LUNCH-'), sg.Button('Remove Selected Lunch', key='-REMOVE LUNCH-')]
+            ]),
+            sg.VSeparator(),
+            sg.Column([
+                [sg.Text('Dinner', font=(FONT, 18))],
+                [sg.Listbox(values=sorted(dinner_list), size=(60 , 25), key='-DINNER LIST-', enable_events=True)],
+                [sg.Text('Line 1:'), sg.InputText(key='-NEW DINNER1-')],
+                [sg.Text('Line 2:'), sg.InputText(key='-NEW DINNER2-')],
+                [sg.Text('Dessert:'), sg.InputText(key='-NEW DINNER DESSERT-')],
+                [sg.Button('Add Dinner', key='-ADD DINNER-'), sg.Button('Remove Selected Dinner', key='-REMOVE DINNER-')]
+            ])
+        ],
+        [sg.Button('Exit')]
+    ]
+
+    window = sg.Window('Meal Data Management', layout, modal=True)
+
+    while True:
+        event, values = window.read()
+        if event == sg.WINDOW_CLOSED or event == 'Exit':
+            break
+        elif event.startswith('-ADD'):
+            if event.startswith('-ADD BREAKFAST'):
+                new_breakfast1 = values['-NEW BREAKFAST1-'].strip().title()
+                new_breakfast2 = values['-NEW BREAKFAST2-'].strip().title()
+                new_breakfast_drink = values['-NEW BREAKFAST DEFAULT DRINK-'].strip().title()
+                if new_breakfast1 or new_breakfast2:
+                    # Concatenate the new breakfast lines with semicolons
+                    new_breakfast = new_breakfast1 + '; ' + new_breakfast2 + ';'
+                    success = api_functions.add_meal(API_URL, 'breakfast', new_breakfast, new_breakfast_drink)
+                    if success:
+                        updated_breakfast = api_functions.fetch_raw_meal_data(API_URL, 'breakfast')
+                        window['-BREAKFAST LIST-'].update(values=sorted(updated_breakfast))
+                        sg.popup('Breakfast added successfully!')
+                    else:
+                        sg.popup_error('Failed to add breakfast')
+            elif event.startswith('-ADD LUNCH'):
+                new_lunch1 = values['-NEW LUNCH1-'].strip().title()
+                new_lunch2 = values['-NEW LUNCH2-'].strip().title()
+                new_lunch_dessert = values['-NEW LUNCH DESSERT-'].strip().title()
+                if new_lunch1 or new_lunch2:
+                    # Concatenate the new lunch lines plus dessert with semicolons
+                    new_lunch = new_lunch1 + '; ' + new_lunch2 + ';' + new_lunch_dessert + ';'
+                    success = api_functions.add_meal(API_URL, 'lunch', new_lunch, default_drink=None)
+                    if success:
+                        updated_lunch = api_functions.fetch_raw_meal_data(API_URL, 'lunch')
+                        window['-LUNCH LIST-'].update(values=sorted(updated_lunch))
+                        sg.popup('Lunch added successfully!')
+                    else:
+                        sg.popup_error('Failed to add lunch')
+            elif event.startswith('-ADD DINNER'):
+                new_dinner1 = values['-NEW DINNER1-'].strip().title()
+                new_dinner2 = values['-NEW DINNER2-'].strip().title()
+                new_dinner_dessert = values['-NEW DINNER DESSERT-'].strip().title()
+                if new_dinner1 or new_dinner2:
+                    # Concatenate the new dinner lines plus dessert with semicolons
+                    new_dinner = new_dinner1 + '; ' + new_dinner2 + ';' + new_dinner_dessert + ';'
+                    success = api_functions.add_meal(API_URL, 'dinner', new_dinner, default_drink=None)
+                    if success:
+                        updated_dinner = api_functions.fetch_raw_meal_data(API_URL, 'dinner')
+                        window['-DINNER LIST-'].update(values=sorted(updated_dinner))
+                        sg.popup('Dinner added successfully!')
+                    else:
+                        sg.popup_error('Failed to add dinner')
+        elif event.startswith('-REMOVE'):
+            if event.startswith('-REMOVE BREAKFAST'):
+                selected_breakfast = values['-BREAKFAST LIST-']
+                if selected_breakfast:
+                    # Splitting the breakfast string at semicolons, excluding the last element (default_drink)
+                    breakfast_components = selected_breakfast[0].split(';')[:-1]
+                    # Rejoining the remaining elements to match the meal_option format in the database
+                    meal_option_without_drink = ';'.join(breakfast_components) + ';'
+                    success = api_functions.remove_meal(API_URL, 'breakfast', meal_option_without_drink)
+                    if success:
+                        updated_breakfast = api_functions.fetch_raw_meal_data(API_URL, 'breakfast')
+                        window['-BREAKFAST LIST-'].update(values=sorted(updated_breakfast))
+                        sg.popup('Breakfast removed successfully!')
+            elif event.startswith('-REMOVE LUNCH'):
+                selected_lunch = values['-LUNCH LIST-']
+                if selected_lunch:
+                    # Splitting the lunch string at semicolons
+                    lunch_components = selected_lunch[0].split(';')
+                    # Rejoining the remaining elements to match the meal_option format in the database
+                    meal_option = ';'.join(lunch_components)
+                    success = api_functions.remove_meal(API_URL, 'lunch', meal_option)
+                    if success:
+                        updated_lunch = api_functions.fetch_raw_meal_data(API_URL, 'lunch')
+                        window['-LUNCH LIST-'].update(values=sorted(updated_lunch))
+                        sg.popup('Lunch removed successfully!')
+            elif event.startswith('-REMOVE DINNER'):
+                selected_dinner = values['-DINNER LIST-']
+                if selected_dinner:
+                    # Splitting the dinner string at semicolons
+                    dinner_components = selected_dinner[0].split(';')
+                    # Rejoining the remaining elements to match the meal_option format in the database
+                    meal_option = ';'.join(dinner_components)
+                    success = api_functions.remove_meal(API_URL, 'dinner', meal_option)
+                    if success:
+                        updated_dinner = api_functions.fetch_raw_meal_data(API_URL, 'dinner')
+                        window['-DINNER LIST-'].update(values=sorted(updated_dinner))
+                        sg.popup('Dinner removed successfully!')
+            
+    window.close()
+
+
+def generate_calendar_window():
+    layout = [
+        [sg.Text('Year:', size=7, font=(FONT, 14)), sg.InputText(datetime.now().year, key='-YEAR-', size=(10, 1), font=(FONT, 14))],
+        [sg.Text('Month:', size=7, font=(FONT, 14)), sg.Combo([calendar.month_name[i] for i in range(1, 13)], key='-MONTH-', size=(15, 1), font=(FONT, 14))],
+        [sg.Button('Generate Menu Calendar', pad=((10,10),(8,8)), font=(FONT, 13)), sg.Button('Generate Activities Calendar', pad=((10,10),(15,15)), font=(FONT, 13))],
+        [sg.Button('View/Edit Meals Data', pad=((10,10),(5,8)), font=(FONT, 13)), sg.Button('View/Edit Activities Data', pad=((10,10),(5,8)), font=(FONT, 13))],
+        [sg.Button('Exit', pad=((10,10),(8,8)), font=(FONT, 13))]
+    ]
+
+    window = sg.Window('Generate Calendar', layout)
+
+    while True:
+        event, values = window.read()
+        if event == sg.WINDOW_CLOSED or event == 'Exit':
+            break
+        elif event == 'Generate Menu Calendar':
+            year = int(values['-YEAR-'])
+            month = list(calendar.month_name).index(values['-MONTH-'])
+            if month == 0:
+                sg.popup_error('Please select a valid month')
+                continue
+            file_name = create_menu(year, month)
+            sg.popup('Menu Calendar Generated:', file_name)
+        elif event == 'Generate Activities Calendar':
+            year = int(values['-YEAR-'])
+            month = list(calendar.month_name).index(values['-MONTH-'])
+            if month == 0:
+                sg.popup_error('Please select a valid month')
+                continue
+            file_name = create_calendar(year, month)
+            sg.popup('Activities Calendar Generated:', file_name)
+        elif event == 'View/Edit Activities Data':
+            window.hide()
+            activities = api_functions.fetch_activities(API_URL)
+            activities_data_window(activities)
+            window.un_hide()
+        elif event == 'View/Edit Meals Data':
+            window.hide()
+            breakfast = api_functions.fetch_raw_meal_data(API_URL, 'breakfast')
+            lunch = api_functions.fetch_raw_meal_data(API_URL, 'lunch')
+            dinner = api_functions.fetch_raw_meal_data(API_URL, 'dinner')
+            meal_data_window(breakfast, lunch, dinner)
+            window.un_hide()
+
+
+    window.close()
+
+# -------------------------------------------------------- main window ---------------------------------------------------------
 
 def display_welcome_window(num_of_residents_local, show_login=False):
+    
     
     if config.global_config['is_first_time_setup'] is None:
         config.global_config['is_first_time_setup'] = api_functions.is_first_time_setup(API_URL)
@@ -501,8 +775,9 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         
     if show_login:
         login_window()
-        
 
+
+    
     logged_in_user = config.global_config['logged_in_user']
 
     if config.global_config['is_admin'] is None:
@@ -518,24 +793,23 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         sg.Button('Remove Resident', pad=(6, 3), font=(FONT, 12)),
         sg.Button('Edit Resident', pad=(6, 3), font=(FONT, 12))],
         [sg.Text('', expand_x=True), sg.Button('Add User', pad=(6, 3), font=(FONT, 12)),
-        sg.Button('Remove User', pad=(6, 3), font=(FONT, 12)), sg.Text('', expand_x=True)],
-        [sg.Text('', expand_x=True), sg.Button('View Audit Logs', font=(FONT, 12)), sg.Button('Data Backup Setup', font=(FONT, 12 )), sg.Text('', expand_x=True)]
+        sg.Button('Remove User', pad=(6, 3), font=(FONT, 12)), sg.Text('', expand_x=True), 
+        sg.Button('View Audit Logs', font=(FONT, 12)), sg.Text('', expand_x=True)]
     ]
     
     admin_panel = sg.Frame('Admin Panel', admin_panel_layout, font=(FONT, 14), visible=config.global_config['is_admin'])
 
     layout = [
-        [sg.Text(f'CareTech Resident Management', font=(FONT, 20),
-                 justification='center', pad=(20,20))],
+        [sg.Text(f'CareTech Facility Management', font=(FONT, 20), justification='center', pad=(20,20))],
         [sg.Image(image_path)],
-        [sg.Text(f'Your Facility Currently has {num_of_residents_local} Resident(s)',
-                 font=(FONT, 16), justification='center', pad=(10,10))],
-        [sg.Text(text='', expand_x=True), sg.Button(key='Enter Resident Management', pad=((30,30),(10,10)), image_filename='enter.png'),
-          sg.Button(key="Change Theme", pad=((30,30),(10,10)), image_filename='style.png'), sg.Text(text='', expand_x=True)],
-          [admin_panel]
+        [sg.Text(f'Your Facility Currently has {num_of_residents_local} Resident(s)',font=(FONT, 16), justification='center', pad=(10,10))],
+        [sg.Text(text='', expand_x=True), sg.Button(key='Enter Resident Management', pad=((25,25),(10,10)), image_filename='adl_emar_button.png'),
+         sg.Button(key="Change Theme", pad=((25,25),(10,10)), image_filename='style.png'), sg.Text(text='', expand_x=True)],
+         [sg.Button(key='Calendar Generators', pad=((25,25),(10,10)), image_filename='calendar_button.png'), sg.Button(key='Reminder', pad=((25,25),(10,10)), image_filename='reminder_button.png'),],
+        [admin_panel]
     ]
 
-    window = sg.Window('CareTech Resident Manager', layout, element_justification='c')
+    window = sg.Window('CareTech Facility Management', layout, element_justification='c')
 
     while True:
         event, values = window.read()
@@ -554,15 +828,41 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         #     window.close()
         #     enter_resident_removal()
         #     display_welcome_window(db_functions.get_resident_count())
+        # elif event == 'Enter Resident Management':
+        #     if num_of_residents_local == 0:
+        #         sg.popup("Your Facility Has No Residents. Please Select Click Add Resident.", font=(FONT, 12), 
+        #                  title='Error- No Residents')
+        #         continue
+        #     else:
+        #         window.hide()
+        #         resident_management.main()
+        #         window.un_hide()
+
         elif event == 'Enter Resident Management':
             if num_of_residents_local == 0:
-                sg.popup("Your Facility Has No Residents. Please Select Click Add Resident.", font=(FONT, 12), 
-                         title='Error- No Residents')
-                continue
+                sg.popup("Your Facility Has No Residents. Please Click 'Add Resident'.", font=("Helvetica", 12), title='Error - No Residents')
             else:
-                window.hide()
-                resident_management.main()
-                window.un_hide()   
+                results = show_loading_window(API_URL)
+                if results:
+                    # Unpack the results directly if you are sure all will always be returned successfully
+                    resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data = results
+                    window.hide()
+                    # Pass the fetched data to your resident management function
+                    #print(f'Fetched data: {resident_names}, {user_initials}, {existing_adl_data}, {resident_care_levels}, {active_medications}, {non_medication_orders}, {existing_emar_data}')
+                    # print(f'resident names: {resident_names}')
+                    # print(f'user initials: {user_initials}')
+                    # print(f'existing adl data: {existing_adl_data}')
+                    # print(f'resident care levels: {resident_care_levels}')
+                    # print(f'all medications data: {all_medications_data}')
+                    # print(f'active medications: {active_medications}')
+                    # print(f'non medication orders: {non_medication_orders}')
+                    # print(f'existing emar data: {existing_emar_data}')
+                    resident_management.main(resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data)
+                    window.un_hide()
+                else:
+                    sg.popup_error("Failed to load resident management data.")
+
+
         elif event == 'Change Theme':
             window.close()
             change_theme_window()
@@ -579,17 +879,19 @@ def display_welcome_window(num_of_residents_local, show_login=False):
             window.hide()
             audit_logs_window()
             window.un_hide()
-        # elif event == 'Data Backup Setup':
-        #     window.hide()
-        #     backup_configuration_window()
-        #     startup_routine()
-        #     window.un_hide()
+        elif event == 'Calendar Generators':
+            window.hide()
+            generate_calendar_window()
+            window.un_hide()
+        elif event == 'Reminder':
+            window.hide()
+            tracker_reminder.create_dashboard_window()
+            window.un_hide()
             
     #api_functions.log_action(logged_in_user, 'Logout', f'{logged_in_user} logout')
     config.global_config['logged_in_user'] = None
     window.close()
 
+
 if __name__ == "__main__":
-    #startup_routine()
-    #display_welcome_window(db_functions.get_resident_count(), show_login=True)
     display_welcome_window(api_functions.get_resident_count(API_URL), show_login=True)

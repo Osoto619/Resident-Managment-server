@@ -2,12 +2,18 @@ import PySimpleGUI as sg
 import api_functions
 import db_functions
 from datetime import datetime
-import welcome_screen
 import config
 from datetime import datetime
+from progress_bar import show_loading_window, show_progress_bar
 
+# Heroku API URL
+#API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
+
+# Local API URL
 API_URL = 'http://127.0.0.1:5000'
 
+FONT = config.global_config['font']
+FONT_BOLD = 'Arial Bold'
 
 def add_medication_window(resident_name):
     medication_type_options = ['Scheduled', 'As Needed (PRN)', 'Controlled']
@@ -93,8 +99,9 @@ def add_medication_window(resident_name):
             #     continue
 
             # Insert the new medication
-            success = api_functions.insert_medication(API_URL, resident_name, medication_name, dosage, instructions, medication_type, selected_time_slots, medication_form, medication_count)
-            
+            #success = api_functions.insert_medication(API_URL, resident_name, medication_name, dosage, instructions, medication_type, selected_time_slots, medication_form, medication_count)
+            success = show_progress_bar(api_functions.insert_medication, API_URL, resident_name, medication_name, dosage, instructions, medication_type, selected_time_slots, medication_form, medication_count)
+
             if success:
                 sg.popup('Medication added successfully.')
             
@@ -393,18 +400,18 @@ def controlled_administer_window(resident_name, medication_name, med_count, med_
 
 def create_prn_medication_entry(medication_name, dosage, instructions):
     return [
-        sg.Text(text=medication_name + " " + dosage, size=(23, 1), font=(welcome_screen.FONT, 11)),
-        sg.Text(instructions, size=(30, 1), font=(welcome_screen.FONT, 11)),
-        sg.Button('Administer', key=f'-ADMIN_PRN_{medication_name}-', font=(welcome_screen.FONT, 11))
+        sg.Text(text=medication_name + " " + dosage, size=(23, 1), font=(FONT, 11)),
+        sg.Text(instructions, size=(30, 1), font=(FONT, 11)),
+        sg.Button('Administer', key=f'-ADMIN_PRN_{medication_name}-', font=(FONT, 11))
     ]
 
 
 def create_controlled_medication_entry(medication_name, dosage, instructions, count, form):
     return [
-        sg.Text(text=f"{medication_name} {dosage}", size=(23, 1), font=(welcome_screen.FONT, 11)),
-        sg.Text(instructions, size=(25, 1), font=(welcome_screen.FONT, 11)),
-        sg.Text(f"Count: {count}{'mL' if form == 'Liquid' else ' Pills'}", size=(13, 1), font=(welcome_screen.FONT, 11)),
-        sg.Button('Administer', key=f'-ADMIN_CONTROLLED_{medication_name}-', font=(welcome_screen.FONT, 11))
+        sg.Text(text=f"{medication_name} {dosage}", size=(23, 1), font=(FONT, 11)),
+        sg.Text(instructions, size=(25, 1), font=(FONT, 11)),
+        sg.Text(f"Count: {count}{'mL' if form == 'Liquid' else ' Pills'}", size=(13, 1), font=(FONT, 11)),
+        sg.Button('Administer', key=f'-ADMIN_CONTROLLED_{medication_name}-', font=(FONT, 11))
     ]
 
 
@@ -413,22 +420,22 @@ def create_medication_entry(medication_name, dosage, instructions, time_slot, ad
         sg.Checkbox('', key=f'-CHECK_{medication_name}_{time_slot}-', enable_events=True, tooltip='Check if administered', disabled=True if administered != '' else False,
                     default=True if administered != '' else False),
         sg.InputText(default_text=administered, key=f'-GIVEN_{medication_name}_{time_slot}-', size=3, readonly=True),
-        sg.Text(text=medication_name + " " + dosage, size=(25, 1), font=(welcome_screen.FONT, 13)),
-        sg.Text(instructions, size=(30, 1), font=(welcome_screen.FONT, 13))
+        sg.Text(text=medication_name + " " + dosage, size=(25, 1), font=(FONT, 13)),
+        sg.Text(instructions, size=(30, 1), font=(FONT, 13))
     ]
 
 
 def create_non_med_order_entry(order_name, special_instructions):
     return [
-        sg.Text(text=order_name, size=(23, 1), font=(welcome_screen.FONT, 11)),
-        sg.Text(special_instructions, size=(30, 1), font=(welcome_screen.FONT, 11)),
-        sg.Button('Performed', key=f'-PERFORM_NON_MED_{order_name}-', font=(welcome_screen.FONT, 11))
+        sg.Text(text=order_name, size=(23, 1), font=(FONT, 11)),
+        sg.Text(special_instructions, size=(30, 1), font=(FONT, 11)),
+        sg.Button('Performed', key=f'-PERFORM_NON_MED_{order_name}-', font=(FONT, 11))
     ]
 
 
 def create_time_slot_section(time_slot, medications):
     layout = [create_medication_entry(med_name, med_info['dosage'], med_info['instructions'], time_slot) for med_name, med_info in medications.items()]
-    return sg.Frame(time_slot, layout, font=(welcome_screen.FONT, 13))
+    return sg.Frame(time_slot, layout, font=(FONT, 13))
 
 
 def retrieve_emar_data_from_window(window, resident_name):
@@ -634,24 +641,25 @@ def edit_non_med_order_window(selected_resident):
     window.close()
 
 
-def get_emar_tab_layout(resident_name):
+def get_emar_tab_layout(resident_name, all_medications_data, active_medications, non_medication_orders, existing_emar_data):
     # Fetch medications for the resident, including both scheduled and PRN
-    all_medications_data = api_functions.fetch_medications_for_resident(API_URL, resident_name)
+    #all_medications_data = api_functions.fetch_medications_for_resident(API_URL, resident_name)
+    
     # Extracting medication names and removing duplicates
-    scheduled_meds = [med_name for time_slot in all_medications_data['Scheduled'].values() for med_name in time_slot]
-    prn_meds = list(all_medications_data['PRN'].keys())
-    controlled_meds = list(all_medications_data['Controlled'].keys())
-    all_meds = list(set(scheduled_meds + prn_meds + controlled_meds))
+    # scheduled_meds = [med_name for time_slot in all_medications_data['Scheduled'].values() for med_name in time_slot]
+    # prn_meds = list(all_medications_data['PRN'].keys())
+    # controlled_meds = list(all_medications_data['Controlled'].keys())
+    # all_meds = list(set(scheduled_meds + prn_meds + controlled_meds))
     # Filter out discontinued medications
-    active_medications = api_functions.filter_active_medications(API_URL, resident_name, all_meds)
+    #active_medications = api_functions.filter_active_medications(API_URL, resident_name, all_meds)
     
     filtered_medications_data = filter_medications_data(all_medications_data, active_medications)
     
-    existing_emar_data = api_functions.fetch_emar_data_for_resident(API_URL, resident_name)
+    #existing_emar_data = api_functions.fetch_emar_data_for_resident(API_URL, resident_name)
     all_administered = True
 
     # Fetch non-medication orders for the resident
-    non_medication_orders = api_functions.fetch_all_non_medication_orders(API_URL, resident_name)
+    #non_medication_orders = api_functions.fetch_all_non_medication_orders(API_URL, resident_name)
     # #print(f'non-medication orders:{non_medication_orders}')
     # # Filter active and due non-medication orders
     active_and_due_orders = filter_active_non_medication_orders(non_medication_orders)
@@ -674,21 +682,21 @@ def get_emar_tab_layout(resident_name):
     sections = []
     for time_slot in time_slot_order:
         if time_slot in time_slot_groups:
-            section_frame = sg.Frame(time_slot, time_slot_groups[time_slot], font=(welcome_screen.FONT_BOLD, 12))
+            section_frame = sg.Frame(time_slot, time_slot_groups[time_slot], font=(FONT_BOLD, 12))
             sections.append([section_frame])
 
     # Handle Non-Medication Orders Due Today
     if active_and_due_orders:
         non_med_section_layout = [create_non_med_order_entry(order['order_name'], order['special_instructions']) 
                                 for order in active_and_due_orders]
-        non_med_section_frame = sg.Frame('Non-Medication Orders Due Today', non_med_section_layout, font=(welcome_screen.FONT_BOLD, 12), title_color='red')
+        non_med_section_frame = sg.Frame('Non-Medication Orders Due Today', non_med_section_layout, font=(FONT_BOLD, 12), title_color='red')
         sections.append([non_med_section_frame])
 
     # Handle PRN Medications
     if filtered_medications_data['PRN']:
         prn_section_layout = [create_prn_medication_entry(med_name, med_info['dosage'], med_info['instructions']) 
                           for med_name, med_info in filtered_medications_data['PRN'].items()]
-        prn_section_frame = sg.Frame('As Needed (PRN)', prn_section_layout, font=(welcome_screen.FONT_BOLD, 12))
+        prn_section_frame = sg.Frame('As Needed (PRN)', prn_section_layout, font=(FONT_BOLD, 12))
         sections.append([prn_section_frame])
 
     
@@ -696,7 +704,7 @@ def get_emar_tab_layout(resident_name):
     if filtered_medications_data['Controlled']:
         controlled_section_layout = [create_controlled_medication_entry(med_name, med_info['dosage'], med_info['instructions'], med_info['count'], med_info['form'])
             for med_name, med_info in filtered_medications_data['Controlled'].items()]
-        controlled_section_frame = sg.Frame('Controlled Medications', controlled_section_layout, font=(welcome_screen.FONT_BOLD, 12))
+        controlled_section_frame = sg.Frame('Controlled Medications', controlled_section_layout, font=(FONT_BOLD, 12))
         sections.append([controlled_section_frame])
 
 
@@ -704,15 +712,15 @@ def get_emar_tab_layout(resident_name):
     
     # Bottom part of the layout with buttons
     bottom_layout = [
-        [sg.Text('', expand_x=True), sg.Button('Save', key='-EMAR_SAVE-', font=(welcome_screen.FONT, 11), disabled=all_administered), 
-         sg.Button('Add Medication', key='-ADD_MEDICATION-', font=(welcome_screen.FONT, 11), visible=is_admin), 
-         sg.Button('Edit Medication', key='-EDIT_MEDICATION-', font=(welcome_screen.FONT, 11), visible=is_admin), sg.Button("Discontinue Medication", key='-DC_MEDICATION-' , font=(welcome_screen.FONT, 11), visible=is_admin), 
+        [sg.Text('', expand_x=True), sg.Button('Save', key='-EMAR_SAVE-', font=(FONT, 11), disabled=all_administered), 
+         sg.Button('Add Medication', key='-ADD_MEDICATION-', font=(FONT, 11), visible=is_admin), 
+         sg.Button('Edit Medication', key='-EDIT_MEDICATION-', font=(FONT, 11), visible=is_admin), sg.Button("Discontinue Medication", key='-DC_MEDICATION-' , font=(FONT, 11), visible=is_admin), 
          sg.Text('', expand_x=True)],
-        [sg.Text('', expand_x=True), sg.Button('Add Non-Medication Order', key='-ADD_NON-MEDICATION-', visible= is_admin, font=(welcome_screen.FONT, 11)), 
-         sg.Button('Edit Non-Medication Order', key='-EDIT_NON_MEDICATION-', font=(welcome_screen.FONT, 11)), sg.Button('View Non-Medication Orders', font=(welcome_screen.FONT, 11), key='-NON_MEDICATION_ORDERS-'), sg.Text('', expand_x=True)],
-        [sg.Text('', expand_x=True), sg.Button('View Current Month eMARS Chart', key='CURRENT_EMAR_CHART', font=(welcome_screen.FONT, 11)), sg.Button('Generate Medication List', key='-MED_LIST-', font=(welcome_screen.FONT, 11)), sg.Text('', expand_x=True)],
-        [sg.Text('', expand_x=True), sg.Text('Search eMARS Chart by Month and Year', font=(welcome_screen.FONT, 11)), sg.Text('', expand_x=True)],
-        [sg.Text(text="", expand_x=True), sg.Text(text="Enter Month: (MM)", font=(welcome_screen.FONT, 11)), sg.InputText(size=4, key="-EMAR_MONTH-"), sg.Text("Enter Year: (YYYY)", font=(welcome_screen.FONT, 11)), sg.InputText(size=5, key='-EMAR_YEAR-'), sg.Button("Search", key='-EMAR_SEARCH-', font=(welcome_screen.FONT, 11)), sg.Text(text="", expand_x=True)]
+        [sg.Text('', expand_x=True), sg.Button('Add Non-Medication Order', key='-ADD_NON-MEDICATION-', visible= is_admin, font=(FONT, 11)), 
+         sg.Button('Edit Non-Medication Order', key='-EDIT_NON_MEDICATION-', font=(FONT, 11)), sg.Button('View Non-Medication Orders', font=(FONT, 11), key='-NON_MEDICATION_ORDERS-'), sg.Text('', expand_x=True)],
+        [sg.Text('', expand_x=True), sg.Button('View Current Month eMARS Chart', key='CURRENT_EMAR_CHART', font=(FONT, 11)), sg.Button('Generate Medication List', key='-MED_LIST-', font=(FONT, 11)), sg.Text('', expand_x=True)],
+        [sg.Text('', expand_x=True), sg.Text('Search eMARS Chart by Month and Year', font=(FONT, 11)), sg.Text('', expand_x=True)],
+        [sg.Text(text="", expand_x=True), sg.Text(text="Enter Month: (MM)", font=(FONT, 11)), sg.InputText(size=4, key="-EMAR_MONTH-"), sg.Text("Enter Year: (YYYY)", font=(FONT, 11)), sg.InputText(size=5, key='-EMAR_YEAR-'), sg.Button("Search", key='-EMAR_SEARCH-', font=(FONT, 11)), sg.Text(text="", expand_x=True)]
     ]
 
     combined_layout = sections + bottom_layout
