@@ -10,7 +10,7 @@ from emars_chart import show_emar_chart
 from new_main import API_URL, FONT, FONT_BOLD
 import config
 import pdf
-from progress_bar import show_progress_bar, show_loading_window
+from progress_bar import show_progress_bar, show_loading_window, show_loading_window_for_emar
 
 
 def create_tab_layout(resident_name, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data):
@@ -127,7 +127,9 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
         elif event == '-RESIDENT-':
             window.close()
             selected_resident = values['-RESIDENT-']
-            window = create_management_window(resident_names, selected_resident)
+            results = show_loading_window(API_URL, selected_resident)
+            resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data = results
+            window = create_management_window(resident_names, selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data, default_tab_index=current_tab_index)
         elif event == '-ADL_SAVE-':
             adl_data = adl_management.retrieve_adl_data_from_window(window,selected_resident)
             existing_adl_data = api_functions.fetch_adl_data_for_resident(API_URL, selected_resident)
@@ -153,7 +155,9 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
                  window[given_key].update(value='')  # Clear the input box
         elif event == '-EMAR_SAVE-':
             emar_data = emar_management.retrieve_emar_data_from_window(window, selected_resident)
-            audit_description = emar_management.compare_emar_data_and_log_changes(emar_data, selected_resident, current_date)
+
+            audit_description = emar_management.compare_emar_data_and_log_changes(emar_data, selected_resident)
+            #audit_description ='placeholder_audit_description'
             
             #api_functions.save_emar_data_from_management_window(API_URL, emar_data, audit_description)
             succes = show_progress_bar(api_functions.save_emar_data_from_management_window, API_URL, emar_data, audit_description)
@@ -180,9 +184,14 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
         elif event == 'CURRENT_EMAR_CHART':
             # Get the current month and year
             current_month_year = datetime.now().strftime("%Y-%m")
-            window.hide()
-            show_emar_chart(selected_resident,current_month_year)
-            window.un_hide()
+            results = show_loading_window_for_emar(API_URL, selected_resident, current_month_year)
+            if results:
+                emar_data, discontinued_medications, original_structure = results
+                window.hide()
+                show_emar_chart(selected_resident,current_month_year, emar_data, discontinued_medications, original_structure)
+                window.un_hide()
+            else:
+                sg.popup("Failed to load eMAR Data")
         elif event == '-MED_LIST-':
             medication_data = db_functions.fetch_medications_for_resident(selected_resident)
             pdf.create_medication_list_pdf(selected_resident, medication_data)
@@ -190,31 +199,47 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
             # year_month should be in the format 'YYYY-MM'
             month = values['-ADL_MONTH-'].zfill(2)
             year = values['-ADL_YEAR-']
-            month_year = f'{year}-{month}'
-            print(month_year)
-            if db_functions.does_adl_chart_data_exist(selected_resident, month_year):
+            year_month = f'{year}-{month}'  # Correctly constructed 'YYYY-MM' format
+    
+            if api_functions.does_adl_chart_exist(API_URL, selected_resident, year_month):
                 window.hide()
-                show_adl_chart(selected_resident, month_year)
+                # Use the correctly named variable 'year_month' here
+                show_adl_chart(selected_resident, year_month)
                 window.un_hide()
+
             else:
                 sg.popup("No ADL Chart Data Found for the Specified Month and Resident")
+
         elif event == '-EMAR_SEARCH-':
             # year_month should be in the format 'YYYY-MM'
             month = values['-EMAR_MONTH-'].zfill(2)
             year = values['-EMAR_YEAR-']
-            month_year = f'{year}-{month}'
-            if db_functions.does_emars_chart_data_exist(selected_resident, month_year):
-                window.hide()
-                show_emar_chart(selected_resident, month_year)
-                window.un_hide()
-            else:
-                sg.popup("No eMARs Chart Data Found for the Specified Month and Resident")
+            year_month = f'{year}-{month}'
+            
+            # if api_functions.does_emar_chart_exist(API_URL, selected_resident, year_month):
+            #     window.hide()
+            #     show_emar_chart(selected_resident, year_month)
+            #     window.un_hide()
+            # else:
+            #     sg.popup("No eMARs Chart Data Found for the Specified Month and Resident")
+            if api_functions.does_emar_chart_exist(API_URL, selected_resident, year_month):
+                results = show_loading_window_for_emar(API_URL, selected_resident, year_month)
+                if results:
+                    emar_data, discontinued_medications, original_structure = results
+                    window.hide()
+                    show_emar_chart(selected_resident, year_month, emar_data, discontinued_medications, original_structure)
+                    window.un_hide()
+                else:
+                    sg.popup("Failed to load eMAR Data")
+
         elif event == '-ADD_MEDICATION-':
             window.close()
             emar_management.add_medication_window(selected_resident)
-            results = show_loading_window(API_URL)
+            results = show_loading_window(API_URL, selected_resident)
             resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data = results
             window = create_management_window(resident_names,selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data,default_tab_index=1)
+        
+        #TODO: Update functions with loading window and include sel
         elif event == '-EDIT_MEDICATION-':
             window.close()
             edit_med_win = emar_management.edit_medication_window(selected_resident)

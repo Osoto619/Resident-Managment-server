@@ -145,22 +145,28 @@ def retrieve_adl_data_from_window(window, resident_name):
 
     return adl_data
 
+
 def generate_adl_audit_description(adl_data, existing_adl_data):
     """
-    Generates a description of the changes made to ADL data.
+    Generates a description of the changes made to ADL data. It omits entries that were changed from a value
+    to an empty string or None, focusing instead on meaningful updates.
 
     Args:
         adl_data (dict): The updated ADL data from the window.
         existing_adl_data (dict): The existing ADL data from the database.
 
     Returns:
-        str: A description of the changes made.
+        str: A description of the changes made, excluding changes to empty values.
     """
     changes = []
     for key in adl_data:
-        if adl_data[key] != existing_adl_data.get(key, ''):
-            # Record the change
-            changes.append(f"{key} changed from '{existing_adl_data.get(key, '')}' to '{adl_data[key]}'")
+        # Check if the value has changed and the new value is neither None nor an empty string
+        new_value = adl_data[key]
+        old_value = existing_adl_data.get(key, '')
+        if new_value != old_value and new_value not in [None, '']:
+            # Record the change, converting None values to a readable string for old values
+            old_value_display = 'None' if old_value in [None, ''] else old_value
+            changes.append(f"{key} changed from '{old_value_display}' to '{new_value}'")
 
     # Format the list of changes into a string
     if changes:
@@ -169,3 +175,4 @@ def generate_adl_audit_description(adl_data, existing_adl_data):
         description = "No changes made to ADL data."
 
     return description
+

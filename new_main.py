@@ -10,7 +10,7 @@ from pdf import create_menu, create_calendar
 import tracker_reminder
 import threading
 import queue
-from progress_bar import show_progress_bar, show_loading_window, load_resident_management_data
+from progress_bar import show_progress_bar, show_loading_window, show_loading_window_for_meals
 
 # Heroku API URL
 # API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
@@ -75,38 +75,47 @@ def enter_resident_info():
     window.close()
     
 
-# def enter_resident_removal():
-#     # Fetch the list of residents for the dropdown
-#     residents = db_functions.fetch_residents()
+def enter_resident_removal():
+    # Fetch the list of residents for the dropdown
+    # Check global config resident_names if none fetch from api
+    if config.global_config['resident_names']:
+        residents = config.global_config['resident_names']
+    else:
+        residents = api_functions.get_resident_names(API_URL)
+        config.global_config['resident_names'] = residents
 
-#     # Define the layout for the removal window
-#     layout = [
-#         [sg.Text('Warning: Removing a resident is irreversible.', text_color='red', font=(FONT_BOLD, 16))],
-#         [sg.Text('Please ensure you have saved any required data before proceeding.', font=(FONT, 12))],
-#         [sg.Text('Select a resident to remove:', font=(FONT, 12)), sg.Combo(residents, key='-RESIDENT-', font=(FONT, 12))],
-#         [sg.Button('Remove Resident', font=(FONT, 12)), sg.Button('Cancel', font=(FONT, 12))]
-#     ]
+    # Define the layout for the removal window
+    layout = [
+        [sg.Text('Warning: Removing a resident is irreversible.', text_color='red', font=(FONT_BOLD, 16))],
+        [sg.Text('Please ensure you have saved any required data before proceeding.', font=(FONT, 12))],
+        [sg.Text('Select a resident to remove:', font=(FONT, 12)), sg.Combo(residents, key='-RESIDENT-', font=(FONT, 12))],
+        [sg.Button('Remove Resident', font=(FONT, 12)), sg.Button('Cancel', font=(FONT, 12))]
+    ]
 
-#     # Create the removal window
-#     window = sg.Window('Remove Resident', layout)
+    # Create the removal window
+    window = sg.Window('Remove Resident', layout)
 
-#     # Event loop for the removal window
-#     while True:
-#         event, values = window.read()
-#         if event == sg.WIN_CLOSED or event == 'Cancel':
-#             break
-#         elif event == 'Remove Resident':
-#             # Confirm the removal
-#             resident_to_remove = values['-RESIDENT-']
-#             if resident_to_remove:  # Proceed only if a resident is selected
-#                 confirm = sg.popup_yes_no('Are you sure you want to remove this resident? This action cannot be undone.')
-#                 if confirm == 'Yes':
-#                     db_functions.remove_resident(resident_to_remove)
-#                     sg.popup(f'Resident {resident_to_remove} has been removed.')
-#                     window.close()
-#                     break
+    # Event loop for the removal window
+    while True:
+        event, values = window.read()
+        if event == sg.WIN_CLOSED or event == 'Cancel':
+            break
+        elif event == 'Remove Resident':
+            # Confirm the removal
+            resident_to_remove = values['-RESIDENT-']
+            if resident_to_remove:  # Proceed only if a resident is selected
+                confirm = sg.popup_yes_no('Are you sure you want to remove this resident? This action cannot be undone.')
+                if confirm == 'Yes':
+                    # Function to be replaced with API call
+                    #db_functions.remove_resident(resident_to_remove)
+                    show_progress_bar(api_functions.remove_resident, API_URL, resident_to_remove)
+                    # Refresh cached resident names
+                    config.global_config['resident_names'] = api_functions.get_resident_names(API_URL)
+                    sg.popup(f'Resident {resident_to_remove} has been removed.')
+                    window.close()
+                    break
 
-#     window.close()
+    window.close()
 
 
 def change_theme_window():
@@ -339,42 +348,19 @@ def add_user_window():
 
 
 def login_window():
-    
     layout = [
-        [sg.Text("CareTech Resident Management", font=(FONT, 15), pad=10)],
+        [sg.Text("CareTech Facility Management", font=(FONT, 15), pad=10)],
         [sg.Text("Username:", font=(FONT, 15), size=9, pad=(0,12)), sg.InputText(key='username', size=14, font=(FONT,15))],
         [sg.Text("Password:", font=(FONT,15), size=9, pad=(0,12)), sg.InputText(key='password', password_char='*', size=14, font=(FONT,15))],
-        [sg.Text('', expand_x=True), sg.Button(key='Login',size=14, image_filename='login.png', pad=(15)), sg.Button(key= 'Exit',size=14, image_filename='exit.png', pad=(15)), sg.Text('', expand_x=True)]
+        [sg.Text('', expand_x=True), sg.Button(key='Login', size=14, image_filename='login.png', pad=(15), bind_return_key=True), sg.Button(key='Exit', size=14, image_filename='exit.png', pad=(15)), sg.Text('', expand_x=True)]
     ]
- 
-    window = sg.Window("Login", layout)
 
+    window = sg.Window("Login", layout)
 
     while True:
         event, values = window.read()
         if event in (sg.WIN_CLOSED, "Exit"):
             sys.exit(0)
-        # elif event == "Login":
-        #     username = values['username']
-        #     password = values['password']
-            
-        #     if api_functions.validate_login(API_URL, username, password):
-                
-        #         # Log the successful login action
-        #         config.global_config['logged_in_user'] = username
-        #         # api_functions.log_action(API_URL, username, "Login", f"{username}")
-        #         if api_functions.needs_password_reset(API_URL, username):
-        #           window.close()
-        #           new_user_setup_window(username)
-        #           display_welcome_window(api_functions.get_resident_count(API_URL),show_login=False)
-           
-        #         else:
-        #             # Proceed to main application
-        #             sg.popup("Login Successful!", title="Success")
-        #             break
-        #     else:
-        #         sg.popup("Invalid username or password.", title="Error")
-        
         elif event == "Login":
             username = values['username']
             password = values['password']
@@ -392,7 +378,6 @@ def login_window():
                 if password_reset_needed:
                     window.close()
                     new_user_setup_window(username)
-                    # Assuming display_welcome_window might also benefit from knowing the resident count
                     resident_count = show_progress_bar(api_functions.get_resident_count, API_URL)
                     display_welcome_window(resident_count, show_login=False)
                 else:
@@ -403,12 +388,11 @@ def login_window():
             else:
                 sg.popup("Invalid username or password.", title="Error")
 
-
-            window.close()
+    window.close()
 
 
 def audit_logs_window():
-    col_widths = [20, 15, 30, 65]  # Adjusted for readability
+    col_widths = [20, 15, 20, 70]  # Adjusted for readability
     # Define the layout for the audit logs window
     layout = [
         [sg.Text('', expand_x=True), sg.Text('Admin Audit Logs', font=(FONT, 23)), sg.Text('', expand_x=True)],
@@ -744,13 +728,21 @@ def generate_calendar_window():
             activities = api_functions.fetch_activities(API_URL)
             activities_data_window(activities)
             window.un_hide()
+        # elif event == 'View/Edit Meals Data':
+        #     window.hide()
+        #     breakfast = api_functions.fetch_raw_meal_data(API_URL, 'breakfast')
+        #     lunch = api_functions.fetch_raw_meal_data(API_URL, 'lunch')
+        #     dinner = api_functions.fetch_raw_meal_data(API_URL, 'dinner')
+        #     meal_data_window(breakfast, lunch, dinner)
+        #     window.un_hide()
         elif event == 'View/Edit Meals Data':
-            window.hide()
-            breakfast = api_functions.fetch_raw_meal_data(API_URL, 'breakfast')
-            lunch = api_functions.fetch_raw_meal_data(API_URL, 'lunch')
-            dinner = api_functions.fetch_raw_meal_data(API_URL, 'dinner')
-            meal_data_window(breakfast, lunch, dinner)
-            window.un_hide()
+            meal_data = show_loading_window_for_meals(API_URL)
+            if meal_data:
+                breakfast, lunch, dinner = meal_data
+                window.hide()
+                meal_data_window(breakfast, lunch, dinner)
+                window.un_hide()
+
 
 
     window.close()
@@ -758,8 +750,6 @@ def generate_calendar_window():
 # -------------------------------------------------------- main window ---------------------------------------------------------
 
 def display_welcome_window(num_of_residents_local, show_login=False):
-    
-    
     if config.global_config['is_first_time_setup'] is None:
         config.global_config['is_first_time_setup'] = api_functions.is_first_time_setup(API_URL)
         
@@ -776,8 +766,6 @@ def display_welcome_window(num_of_residents_local, show_login=False):
     if show_login:
         login_window()
 
-
-    
     logged_in_user = config.global_config['logged_in_user']
 
     if config.global_config['is_admin'] is None:
@@ -824,20 +812,10 @@ def display_welcome_window(num_of_residents_local, show_login=False):
             window.close()
             enter_resident_info()
             display_welcome_window(api_functions.get_resident_count(API_URL))
-        # elif event == 'Remove Resident':
-        #     window.close()
-        #     enter_resident_removal()
-        #     display_welcome_window(db_functions.get_resident_count())
-        # elif event == 'Enter Resident Management':
-        #     if num_of_residents_local == 0:
-        #         sg.popup("Your Facility Has No Residents. Please Select Click Add Resident.", font=(FONT, 12), 
-        #                  title='Error- No Residents')
-        #         continue
-        #     else:
-        #         window.hide()
-        #         resident_management.main()
-        #         window.un_hide()
-
+        elif event == 'Remove Resident':
+            window.close()
+            enter_resident_removal()
+            display_welcome_window(api_functions.get_resident_count(API_URL))
         elif event == 'Enter Resident Management':
             if num_of_residents_local == 0:
                 sg.popup("Your Facility Has No Residents. Please Click 'Add Resident'.", font=("Helvetica", 12), title='Error - No Residents')
@@ -847,22 +825,10 @@ def display_welcome_window(num_of_residents_local, show_login=False):
                     # Unpack the results directly if you are sure all will always be returned successfully
                     resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data = results
                     window.hide()
-                    # Pass the fetched data to your resident management function
-                    #print(f'Fetched data: {resident_names}, {user_initials}, {existing_adl_data}, {resident_care_levels}, {active_medications}, {non_medication_orders}, {existing_emar_data}')
-                    # print(f'resident names: {resident_names}')
-                    # print(f'user initials: {user_initials}')
-                    # print(f'existing adl data: {existing_adl_data}')
-                    # print(f'resident care levels: {resident_care_levels}')
-                    # print(f'all medications data: {all_medications_data}')
-                    # print(f'active medications: {active_medications}')
-                    # print(f'non medication orders: {non_medication_orders}')
-                    # print(f'existing emar data: {existing_emar_data}')
                     resident_management.main(resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data)
                     window.un_hide()
                 else:
                     sg.popup_error("Failed to load resident management data.")
-
-
         elif event == 'Change Theme':
             window.close()
             change_theme_window()

@@ -129,6 +129,7 @@ create table if not exists emar_chart (
     administered varchar(100),
     current_count int default null,
     notes text,
+    chart_time time default null,
     foreign key(resident_id) references residents(id),
     foreign key(medication_id) references medications(id),
     unique(resident_id, medication_id, chart_date, time_slot) 

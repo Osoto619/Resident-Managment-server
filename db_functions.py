@@ -1,12 +1,5 @@
 import sqlite3
 
-def fetch_residents():
-    """ Fetches a list of resident names from the database. """
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT name FROM residents')
-        return [row[0] for row in cursor.fetchall()]
-
 
 def fetch_audit_logs(last_10_days=False, username='', action='', date=''):
     conn = sqlite3.connect('resident_data.db')
@@ -60,52 +53,6 @@ def fetch_audit_logs(last_10_days=False, username='', action='', date=''):
 
 
 
-def save_backup_configuration(backup_folder, backup_frequency):
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        # Check if a row exists
-        cursor.execute("SELECT id FROM backup_config WHERE id = 1")
-        exists = cursor.fetchone()
-        
-        if exists:
-            # Update if row exists
-            cursor.execute('''
-                UPDATE backup_config
-                SET backup_folder = ?, backup_frequency = ?
-                WHERE id = 1
-            ''', (backup_folder, backup_frequency))
-        else:
-            # Insert if no row exists
-            cursor.execute('''
-                INSERT INTO backup_config (id, backup_folder, backup_frequency)
-                VALUES (1, ?, ?)
-            ''', (backup_folder, backup_frequency))
-        
-        conn.commit()
-
-
-def get_backup_configuration():
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT backup_folder, backup_frequency, last_backup_date FROM backup_config WHERE id = 1")
-        config = cursor.fetchone()
-        if config:
-            # Parse the last_backup_date string to datetime.date
-            last_backup_date = datetime.strptime(config[2], "%Y-%m-%d").date()
-            return {'backup_folder': config[0], 'backup_frequency': config[1], 'last_backup_date': last_backup_date}
-        else:
-            return None
-
-
-def update_last_backup_date():
-    # Update the last backup date in the backup configuration
-    last_backup_date = datetime.now().strftime("%Y-%m-%d")
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE backup_config SET last_backup_date = ? WHERE id = 1", (last_backup_date,))
-        conn.commit()
-
-
 def is_username_exists(username):
     """
     Check if a given username already exists in the database.
@@ -142,41 +89,6 @@ def remove_user(username):
 
     conn.commit()
     conn.close()
-
-
-def get_user_theme():
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT setting_value FROM user_settings WHERE setting_name = 'theme'")
-        result = cursor.fetchone()
-        return result[0] if result else 'Reddit'
-
-
-def get_user_font():
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        # Query to select the font setting from the database
-        cursor.execute("SELECT setting_value FROM user_settings WHERE setting_name = 'font'")
-        result = cursor.fetchone()
-        # Return the result if found, otherwise return 'Helvetica' as the default font
-        return result[0] if result else 'Helvetica'
-
-
-def save_user_font_choice(font):
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        # Check if the font setting already exists
-        cursor.execute('SELECT COUNT(*) FROM user_settings WHERE setting_name = "font"')
-        exists = cursor.fetchone()[0] > 0
-
-        if exists:
-            # Update the existing font setting
-            cursor.execute('UPDATE user_settings SET setting_value = ? WHERE setting_name = "font"', (font,))
-        else:
-            # Insert a new font setting
-            cursor.execute('INSERT INTO user_settings (setting_name, setting_value) VALUES ("font", ?)', (font,))
-
-        conn.commit()
 
 
 def fetch_resident_information(resident_name):
@@ -552,18 +464,6 @@ def record_non_med_order_performance(order_name, resident_id, notes, user_initia
         log_action(config.global_config['logged_in_user'], 'Non-Medication Order Administered', f'{order_name} administered for {resident_id}')
 
 
-def does_adl_chart_data_exist(resident_name, year_month):
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT EXISTS(
-                SELECT 1 FROM adl_chart
-                WHERE resident_name = ? AND strftime('%Y-%m', date) = ?
-            )
-        ''', (resident_name, year_month))
-        return cursor.fetchone()[0]
-
-
 ADL_KEYS = [
                 "first_shift_sp", "second_shift_sp", "first_shift_activity1", "first_shift_activity2",
                 "first_shift_activity3", "second_shift_activity4", "first_shift_bm", "second_shift_bm",
@@ -753,10 +653,7 @@ def fetch_prn_data_for_day(event_key, resident_name, year_month):
         '''
         cursor.execute(query, (resident_name, med_name, date_query + '%'))
         result = cursor.fetchall()
-        
-        # Debugging: Print the SQL result
-        # print(f"SQL Query Result: {result}")
-
+    
         return result
 
 

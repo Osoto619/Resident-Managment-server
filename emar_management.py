@@ -265,9 +265,10 @@ def edit_medication_window(selected_resident):
     window.close()
 
 
-def compare_emar_data_and_log_changes(user_input_data, resident_name, date):
+def compare_emar_data_and_log_changes(user_input_data, resident_name):
     # Fetch current eMAR data from the database
-    current_data = db_functions.fetch_current_emar_data_for_resident_date(resident_name, date)
+    #current_data = db_functions.fetch_current_emar_data_for_resident_date(resident_name, date)
+    current_data = api_functions.fetch_emar_data_for_resident_audit_log(API_URL, resident_name)
     
     changes_made = []
     for entry in user_input_data:
@@ -290,7 +291,7 @@ def prn_administer_window(resident_name, medication_name):
     current_hour = datetime.now().hour
     current_minute = datetime.now().minute
     current_user = config.global_config['logged_in_user']
-    user_initials = db_functions.get_user_initials(current_user)
+    user_initials = config.global_config['user_initials']
     
     layout = [
         [sg.Text("Medication:"), sg.Text(medication_name)],
@@ -314,21 +315,24 @@ def prn_administer_window(resident_name, medication_name):
             admin_datetime = datetime.strptime(admin_datetime_str, "%Y-%m-%d %H:%M")
 
             # Prevent future date/time selection
-            if admin_datetime > curent_datetime:
+            if admin_datetime > datetime.now():
                 sg.popup("The selected date/time is in the future. Please choose a current or past time.")
                 continue
 
             admin_data = {
                 "datetime": admin_datetime_str,
-                "initials": user_initials,
+                "administered": values['-INITIALS-'],  # Assuming you have an input field for this or using 'user_initials'
                 "notes": values['-NOTES-']
             }
-            
-            db_functions.save_prn_administration_data(resident_name, medication_name, admin_data)
-            db_functions.log_action(current_user,'Administer PRN Med', f'user: {current_user} medication: {medication_name} resident: {resident_name} ')
-            sg.popup(f"Medication {medication_name} administered.")
-            break
-    
+
+            # Proceed with calling your API function
+            success = show_progress_bar(api_functions.save_prn_administration_data, API_URL, resident_name, medication_name, admin_data)
+            if success:
+                sg.popup(f"Medication {medication_name} administered.")
+                break
+            else:
+                sg.popup('Failed to administer medication. Please try again.')
+                break
     window.close()
 
 

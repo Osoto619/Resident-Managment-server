@@ -79,25 +79,80 @@ def create_prn_controlled_medication_section(medication_name, medication_info, t
     return section_layout
 
 
-def create_prn_details_window(event_key, resident_name, year_month, medication_name):
-    prn_data = db_functions.fetch_prn_data_for_day(event_key, resident_name, year_month)
-    
-    # Extract the date from the first entry in controlled_data (assuming it's always in the same format)
-    date_str = prn_data[0][0]  # Get the date string from the first entry
-    date_obj = datetime.strptime(date_str, '%Y-%m-%d %H:%M')  # Parse it as a datetime object
-    formatted_date = date_obj.strftime('%m-%d-%Y')  # Format it as DD-MM-YYYY
-    # Transform data for the table
-    table_data = [[entry[0], entry[1], entry[2]] for entry in prn_data]
+# def create_prn_details_window(event_key, resident_name, year_month, medication_name):
+#     _, med_name, day, _ = event_key.split('-')
+#     parts = med_name.split('_')
+#     med_name = parts[1] 
+#     day = day.zfill(2)  # Ensure day is two digits
+#     prn_data = api_functions.fetch_prn_data_for_day(API_URL, resident_name, med_name, year_month, day)
 
-    # Define table headers
+#     # Check if prn_data is not empty to avoid KeyError
+#     if not prn_data:
+#         sg.popup_error("No PRN data found for the selected day.")
+#         return
+
+#     # Adjusted to access dictionary keys directly
+#     date_str = prn_data[0]['date']  # Access the 'date' key in the first dictionary
+#     date_obj = datetime.strptime(date_str, '%a, %d %b %Y %H:%M:%S GMT')  # Adjusted for the given date format
+#     formatted_date = date_obj.strftime('%m-%d-%Y')  # Format it as MM-DD-YYYY
+
+#     # Transform data for the table, adjusted for dictionary access
+#     table_data = [[entry['date'], entry['administered'], entry['notes']] for entry in prn_data]
+
+#     # Define table headers
+#     headers = ["Date/Time Administered", "Administered By", "Notes"]
+
+#     # Define the layout with the table
+#     layout = [
+#         [sg.Text('', expand_x=True), sg.Text(f"{medication_name} {formatted_date}", font=('Helvetica', 17)), sg.Text("", expand_x=True)],
+#         [sg.Table(values=table_data, headings=headers, max_col_width=25, auto_size_columns=True, justification='left', num_rows=min(10, len(table_data)))]
+#     ]
+#     layout.append([sg.Text("", expand_x=True), sg.Button("Close", key="-CLOSE-", font=('Helvetica', 14)), sg.Text("", expand_x=True)])
+
+#     window = sg.Window("PRN Details", layout, modal=True)
+    
+#     while True:
+#         event, values = window.read()
+#         if event == sg.WIN_CLOSED or event == "-CLOSE-":
+#             break
+
+#     window.close()
+
+
+def create_prn_details_window(event_key, resident_name, year_month, medication_name):
+    _, med_name, day, _ = event_key.split('-')
+    parts = med_name.split('_')
+    med_name = parts[1]
+    day = day.zfill(2)  # Ensure day is two digits
+    prn_data = api_functions.fetch_prn_data_for_day(API_URL, resident_name, med_name, year_month, day)
+
+    if not prn_data:
+        sg.popup_error("No PRN data found for the selected day.")
+        return
+
+    # Adjust parsing logic to accommodate potential absence of time component
+    for entry in prn_data:
+        # Attempt to parse with time component
+        try:
+            entry_date = datetime.strptime(entry['date'].strip(), '%Y-%m-%d %H:%M')
+        except ValueError:
+            # If parsing fails, fall back to date only
+            entry_date = datetime.strptime(entry['date'].strip(), '%Y-%m-%d')
+        # Reformat entry['date'] to ensure consistency
+        entry['date'] = entry_date.strftime('%Y-%m-%d %H:%M')
+
+    formatted_date = prn_data[0]['date'].split(' ')[0]  # Use the date part for the window title, formatted as YYYY-MM-DD
+    formatted_date = datetime.strptime(formatted_date, '%Y-%m-%d').strftime('%m-%d-%Y')  # Convert to MM-DD-YYYY format
+
+    table_data = [[entry['date'], entry['administered'], entry['notes']] for entry in prn_data]
+
     headers = ["Date/Time Administered", "Administered By", "Notes"]
 
-    # Define the layout with the table
     layout = [
-        [sg.Text('', expand_x=True), sg.Text(f"{medication_name} {formatted_date}", font=(db_functions.get_user_font, 17)), sg.Text("", expand_x=True)],
+        [sg.Text('', expand_x=True), sg.Text(f"{medication_name} {formatted_date}", font=('Helvetica', 17)), sg.Text("", expand_x=True)],
         [sg.Table(values=table_data, headings=headers, max_col_width=25, auto_size_columns=True, justification='left', num_rows=min(10, len(table_data)))]
     ]
-    layout.append([sg.Text("", expand_x=True), sg.Button("Close", key="-CLOSE-", font=(db_functions.get_user_font, 14)), sg.Text("", expand_x=True)])
+    layout.append([sg.Text("", expand_x=True), sg.Button("Close", key="-CLOSE-", font=('Helvetica', 14)), sg.Text("", expand_x=True)])
 
     window = sg.Window("PRN Details", layout, modal=True)
     
@@ -107,7 +162,6 @@ def create_prn_details_window(event_key, resident_name, year_month, medication_n
             break
 
     window.close()
-
 
 
 def create_controlled_details_window(event_key, resident_name, year_month, medication_name):
@@ -182,7 +236,7 @@ def create_monthly_details_window(resident_name, medication_name, year_month, me
     window.close()
 
 
-def show_emar_chart(resident_name, year_month):
+def show_emar_chart(resident_name, year_month, emar_data, discontinued_medications, original_structure):
     # Define the number of days
     num_days = 31
 
@@ -198,18 +252,18 @@ def show_emar_chart(resident_name, year_month):
     month_name = calendar.month_name[int(month_number)]
 
     # Fetch eMAR data for the month
-    emar_data = api_functions.fetch_emar_data_for_month(API_URL, resident_name, year_month)
+    #emar_data = api_functions.fetch_emar_data_for_month(API_URL, resident_name, year_month)
 
     # print(f'RESIDENT NAME: {resident_name}')
     # print(f'YEAR MONTH: {year_month}')
     # print(f'EMAR DATA: {emar_data}')
 
     # Fetch discontinued medications with their discontinuation dates
-    discontinued_medications = api_functions.fetch_discontinued_medications(API_URL, resident_name)
+    #discontinued_medications = api_functions.fetch_discontinued_medications(API_URL, resident_name)
     # print('testing dc meds')
     # print(discontinued_medications)
 
-    original_structure = api_functions.fetch_medications_for_resident(API_URL, resident_name)
+    #original_structure = api_functions.fetch_medications_for_resident(API_URL, resident_name)
     
     # Process Scheduled Medications
     new_structure = {}
@@ -461,6 +515,7 @@ def show_emar_chart(resident_name, year_month):
             _, med_name, _, _ = event.split('-')
             parts = med_name.split('_')
             med_name = parts[1]
+            year_month = f'{year}-{month_number.zfill(2)}'
             if values[event]:
                 create_prn_details_window(event, resident_name, year_month, med_name)
         elif event.startswith('-Control'):

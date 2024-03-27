@@ -263,7 +263,7 @@ def get_user_initials(api_url):
         print(f"Request failed: {e}")
         return ''
 
-# ----------------------------- user_settings Table ----------------------------- #
+# ----------------------------------------------------- user_settings Table ---------------------------------------- #
 
 def save_user_preferences(api_url, theme, font):
     """
@@ -316,7 +316,7 @@ def get_user_preferences(api_url):
         return {'theme': 'Reddit', 'font': 'Helvetica'}
 
 
-# ------------------------------ audit_logs Table ------------------------------- #
+# ------------------------------------------------------------------------------ audit_logs Table ---------------------------------------------------- #
 
 def log_action(api_url, username, activity, details):
     data = {
@@ -372,7 +372,7 @@ def fetch_audit_logs(api_url, last_10_days=False, username='', action='', date='
         return []
 
 
- # ----------------------------- residents Table ------------------------------- #
+ # ----------------------------------------------------------------- residents Table ------------------------------------------------------------- #
         
 def get_resident_count(api_url):
     """
@@ -497,7 +497,44 @@ def insert_resident(api_url, name, date_of_birth, level_of_care):
         return False
 
 
-# -------------------------- adl_chart Table ------------------------------ #
+def remove_resident(api_url, resident_name):
+    """
+    Remove a resident from the database using the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident to remove.
+
+    Returns:
+        bool: True if the resident was removed successfully, False otherwise.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}'}
+    data = {"resident_name": resident_name}
+    try:
+        response = requests.post(f"{api_url}/remove_resident", json=data, headers=headers)
+        if response.status_code == 200:
+            print("Resident removed successfully.")
+            return True
+        elif response.status_code == 403:
+            print("Unauthorized to remove resident.")
+            return False
+        elif response.status_code == 404:
+            print("Resident not found.")
+            return False
+        else:
+            print("Failed to remove resident:", response.json())
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+
+# ------------------------------------------------- adl_chart Table -------------------------------------------------------------- #
     
 def fetch_adl_data_for_resident(api_url, resident_name):
     """
@@ -596,7 +633,32 @@ def save_adl_data_from_management_window(api_url, resident_name, adl_data, audit
         return False
 
 
-# ------------------------------- medications Table ------------------------------- #
+def does_adl_chart_exist(api_url, resident_name, year_month):
+    """
+    Checks if ADL chart data exists for a specific resident and month.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (int): The Name of the resident.
+        year_month (str): The year and month in 'YYYY-MM' format.
+
+    Returns:
+        bool: True if the ADL chart data exists, False otherwise.
+    """
+    url = f"{api_url}/does_adl_chart_exist/{resident_name}/{year_month}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get('exists', False)
+        else:
+            print(f"Failed to check ADL chart existence: {response.json()}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+# -------------------------------------------------- medications Table ------------------------------------------------ #
 
 def insert_medication(api_url, resident_name, medication_name, dosage, instructions, medication_type, selected_time_slots, medication_form=None, medication_count=None):
     """
@@ -801,7 +863,7 @@ def fetch_all_non_medication_orders(api_url, resident_name):
         print(f"Failed to fetch non-medication orders: {response.text}")
         return []
 
-# --------------------------------- emar_chart Table ----------------------------------------- #
+# ------------------------------------------------- emar_chart Table --------------------------------------------------------- #
 
 def fetch_emar_data_for_resident(api_url, resident_name):
     """
@@ -836,6 +898,38 @@ def fetch_emar_data_for_resident(api_url, resident_name):
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
         return {}
+
+
+def fetch_emar_data_for_resident_audit_log(api_url, resident_name):
+    """
+    Fetch eMAR data for a specific resident for today's date from the Flask API. This data is intended for creating audit logs.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident to fetch eMAR data for.
+
+    Returns:
+        list: A list of dictionaries, each containing eMAR data for the resident for today's date. Returns an empty list on failure.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return []
+
+    headers = {'Authorization': f'Bearer {token}'}
+    url = f"{api_url}/fetch_emar_data_for_resident_audit_log/{resident_name}"
+    
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            emar_data = response.json()
+            return emar_data
+        else:
+            print(f"Failed to fetch eMAR data for {resident_name}:", response.json())
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return []
 
 
 def fetch_emar_data_for_month(api_url, resident_name, year_month):
@@ -903,6 +997,104 @@ def save_emar_data_from_management_window(api_url, emar_data, audit_description)
         print(f"Request failed: {e}")
         return {}
 
+
+def does_emar_chart_exist(api_url, resident_name, year_month):
+    """
+    Checks if eMARs chart data exists for a specific resident and month by resident name.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident.
+        year_month (str): The year and month in 'YYYY-MM' format.
+
+    Returns:
+        bool: True if the eMARs chart data exists, False otherwise.
+    """
+    url = f"{api_url}/does_emars_chart_exist/{resident_name}/{year_month}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get('exists', False)
+        else:
+            print(f"Failed to check eMARs chart existence for resident {resident_name}: {response.json()}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+
+def save_prn_administration_data(api_url, resident_name, medication_name, admin_data):
+    """
+    Saves PRN administration data for a resident and medication.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident.
+        medication_name (str): The name of the medication.
+        admin_data (dict): Administration data including datetime, administered status, and notes.
+
+    Returns:
+        bool: True if the data was saved successfully, False otherwise.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+    payload = {
+        'resident_name': resident_name,
+        'medication_name': medication_name,
+        'admin_data': admin_data
+    }
+
+    try:
+        response = requests.post(f"{api_url}/save_prn_administration", json=payload, headers=headers)
+        if response.status_code == 201:
+            print("Administration data saved successfully.")
+            return True
+        else:
+            print(f"Failed to save administration data: {response.json()}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+
+def fetch_prn_data_for_day(api_url, resident_name, medication_name, year_month, day):
+    """
+    Fetches PRN data for a specific day, resident, and medication.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident.
+        medication_name (str): The name of the medication.
+        year_month (str): The year and month in 'YYYY-MM' format.
+        day (str): The day of the month, as a string.
+
+    Returns:
+        list: A list of dictionaries containing PRN data for the specified criteria, or None on failure.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return None
+
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+    url = f"{api_url}/fetch_prn_data_for_day/{resident_name}/{medication_name}/{year_month}/{day}"
+
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            prn_data = response.json()
+            return prn_data
+        else:
+            print(f"Failed to fetch PRN data: {response.json()}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return None
 
 # --------------------------------- activities Table ----------------------------------------- #
 
