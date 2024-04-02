@@ -7,10 +7,10 @@ from datetime import datetime
 from progress_bar import show_loading_window, show_progress_bar
 
 # Heroku API URL
-#API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
+API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
 
 # Local API URL
-API_URL = 'http://127.0.0.1:5000'
+#API_URL = 'http://127.0.0.1:5000'
 
 FONT = config.global_config['font']
 FONT_BOLD = 'Arial Bold'

@@ -13,10 +13,10 @@ import queue
 from progress_bar import show_progress_bar, show_loading_window, show_loading_window_for_meals
 
 # Heroku API URL
-# API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
+API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
 
 # Local API URL
-API_URL = 'http://127.0.0.1:5000'
+#API_URL = 'http://127.0.0.1:5000'
 
 
 # Function to load and apply the user's font and theme settings
