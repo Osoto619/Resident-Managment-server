@@ -4,7 +4,9 @@ import calendar
 import db_functions
 import pdf
 import api_functions
-from new_main import API_URL
+import config
+
+API_URL = config.API_URL
 
 
 # Define the width of the label cell and regular cells

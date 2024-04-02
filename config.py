@@ -8,3 +8,9 @@ global_config = {
     'resident_names': None,
     'resident_care_levels': None
 }
+
+# Heroku API URL
+API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
+
+# Local API URL
+#API_URL = 'http://127.0.0.1:5000'

@@ -7,11 +7,13 @@ import db_functions
 from datetime import datetime
 from adl_chart import show_adl_chart
 from emars_chart import show_emar_chart
-from new_main import API_URL, FONT, FONT_BOLD
 import config
 import pdf
 from progress_bar import show_progress_bar, show_loading_window, show_loading_window_for_emar
 
+API_URL = config.API_URL
+
+FONT = config.global_config['font']
 
 def create_tab_layout(resident_name, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data):
     adl_tab_layout = adl_management.get_adl_tab_layout(resident_name, existing_adl_data, resident_care_levels)

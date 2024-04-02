@@ -8,13 +8,11 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 import calendar
+import config
 #from data import breakfast, lunch, dinner
 
-# Heroku API URL
-# API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
+API_URL = config.API_URL
 
-# Local API URL
-API_URL = 'http://127.0.0.1:5000'
 
 # Custom action to add a footer
 def add_footer(canvas, doc):

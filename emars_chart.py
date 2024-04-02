@@ -5,11 +5,7 @@ import db_functions
 import api_functions
 import config
 
-# Heroku API URL
-#API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
-
-# Local API URL
-API_URL = 'http://127.0.0.1:5000'
+API_URL = config.API_URL
 
 FONT = config.global_config['font']
 

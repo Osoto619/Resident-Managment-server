@@ -1,20 +1,6 @@
 import sqlite3
 
 
-
-
-
-def remove_user(username):
-    conn = sqlite3.connect('resident_data.db')
-    c = conn.cursor() 
-
-    # Delete the user from the users table
-    c.execute("DELETE FROM users WHERE username = ?", (username,))
-
-    conn.commit()
-    conn.close()
-
-
 def fetch_resident_information(resident_name):
     """Fetch and decrypt a resident's information from the database."""
     with sqlite3.connect('resident_data.db') as conn:
