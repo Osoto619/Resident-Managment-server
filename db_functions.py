@@ -1,83 +1,7 @@
 import sqlite3
 
 
-def fetch_audit_logs(last_10_days=False, username='', action='', date=''):
-    conn = sqlite3.connect('resident_data.db')
-    cursor = conn.cursor()
-    
-    # Start building the query
-    query = "SELECT timestamp, username, action, description FROM audit_logs WHERE 1=1"
-    params = []
-    
-    # Filter for the last 10 days
-    if last_10_days:
-        ten_days_ago = (datetime.now() - timedelta(days=10)).strftime('%Y-%m-%d')
-        query += " AND timestamp >= ?"
-        params.append(ten_days_ago)
-    
-    # Filter by username if provided
-    if username:
-        query += " AND username LIKE ?"
-        params.append(f"%{username}%")
-    
-    # Filter by action if provided
-    if action:
-        query += " AND action = ?"
-        params.append(action)
-    
-    # Filter by specific date if provided
-    if date:
-        query += " AND DATE(timestamp) = ?"
-        params.append(date)
-    
-    # Add ORDER BY clause to sort by timestamp in descending order
-    query += " ORDER BY timestamp DESC"
 
-    # Execute the query with the filters applied
-    cursor.execute(query, params)
-    
-    # Fetch all matching records
-    logs = cursor.fetchall()
-    
-    # Close the database connection
-    conn.close()
-    
-    # Decrypt the description in each log entry
-    decrypted_logs = []
-    for log in logs:
-        decrypted_description = fernet.decrypt(log[3].encode()).decode()
-        decrypted_logs.append({'date': log[0], 'username': log[1], 'action': log[2], 'description': decrypted_description})
-    
-    
-    return decrypted_logs
-
-
-
-def is_username_exists(username):
-    """
-    Check if a given username already exists in the database.
-
-    Args:
-    username (str): The username to check.
-
-    Returns:
-    bool: True if the username exists, False otherwise.
-    """
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM users WHERE username = ?', (username,))
-        count = cursor.fetchone()[0]
-        return count > 0
-
-
-
-def get_all_usernames():
-    conn = sqlite3.connect('resident_data.db')
-    c = conn.cursor()
-    c.execute("SELECT username FROM users")
-    usernames = [row[0] for row in c.fetchall()]
-    conn.close()
-    return usernames
 
 
 def remove_user(username):
@@ -118,14 +42,6 @@ def remove_resident(resident_name):
         cursor = conn.cursor()
         cursor.execute('DELETE FROM residents WHERE name = ?', (resident_name,))
         conn.commit()
-
-
-def get_resident_id(resident_name):
-    with sqlite3.connect('resident_data.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT id FROM residents WHERE name = ?', (resident_name,))
-        result = cursor.fetchone()
-        return result[0] if result else None
 
 
 def remove_medication(medication_name, resident_name):

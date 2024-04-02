@@ -111,7 +111,6 @@ def add_medication_window(resident_name):
 
 
 def add_non_medication_order_window(resident_name):
-    resident_id = db_functions.get_resident_id(resident_name)
     layout = [
         [sg.Text('Order Name:'), sg.InputText(key='-ORDER_NAME-')],
         [sg.Text('Special Instructions:'), sg.InputText(key='-INSTRUCTIONS-')],
@@ -286,7 +285,6 @@ def compare_emar_data_and_log_changes(user_input_data, resident_name):
 
 def prn_administer_window(resident_name, medication_name):
     # Set current date and time for default values
-    curent_datetime = datetime.now()
     current_date = datetime.now().strftime("%Y-%m-%d")
     current_hour = datetime.now().hour
     current_minute = datetime.now().minute
@@ -341,7 +339,7 @@ def controlled_administer_window(resident_name, medication_name, med_count, med_
     current_date = datetime.now().strftime("%Y-%m-%d")
     current_hour = datetime.now().hour
     current_minute = datetime.now().minute
-    user_initials = db_functions.get_user_initials(config.global_config['logged_in_user'])
+    user_initials = config.global_config['user_initials']
 
     # Create layout based on medication form
     if med_form == 'Pill':
@@ -367,11 +365,6 @@ def controlled_administer_window(resident_name, medication_name, med_count, med_
         if event == sg.WIN_CLOSED or event == "Cancel":
             break
         elif event == "Submit":
-            initials = values['-INITIALS-'].strip().upper()
-            if not initials:
-                sg.popup('Please enter your initials to proceed')
-                continue
-
             # Validate the administered count for both integer and float values
             try:
                 if med_form == 'Pill':
@@ -388,13 +381,13 @@ def controlled_administer_window(resident_name, medication_name, med_count, med_
             admin_datetime = f"{values['-DATE-']} {values['-HOUR-']:02d}:{values['-MINUTE-']:02d}"
             admin_data = {
                 "datetime": admin_datetime,
-                "initials": values['-INITIALS-'].upper(),
+                "administered": user_initials,
                 "notes": values['-NOTES-'],
                 "administered_count": administered_count
             }
 
             # Save administration data and update medication count
-            db_functions.save_controlled_administration_data(resident_name, medication_name, admin_data, med_count - administered_count)
+            api_functions.save_controlled_administration_data(API_URL, resident_name, medication_name, admin_data, med_count - administered_count)
             sg.popup(f"Medication {medication_name} administered.")
 
             break

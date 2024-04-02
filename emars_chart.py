@@ -3,6 +3,7 @@ import calendar
 from datetime import datetime
 import db_functions
 import api_functions
+import config
 
 # Heroku API URL
 #API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
@@ -10,6 +11,7 @@ import api_functions
 # Local API URL
 API_URL = 'http://127.0.0.1:5000'
 
+FONT = config.global_config['font']
 
 # Define the width of the label cell and regular cells
 label_cell_width = 12  # This may need to be adjusted to align perfectly
@@ -206,31 +208,66 @@ def is_after_discontinuation(year_month, discontinue_date):
     return year_month_dt > discontinue_date_dt
 
 
+# def create_monthly_details_window(resident_name, medication_name, year_month, medication_type):
+#     monthly_data = api_functions.fetch_monthly_medication_data(API_URL, resident_name, medication_name, year_month, medication_type)
+#     if not monthly_data:
+#         sg.popup_error("No monthly data found for the selected medication.")
+#         return
+
+#     # Define table headers based on medication type
+#     if medication_type == 'Control':
+#         headers = ["Date Administered", "Administered By", "Notes", "Count After Administration"]
+#     else:  # PRN medication
+#         headers = ["Date Administered", "Administered By", "Notes"]
+
+#     # Transform data for the table
+#     table_data = [list(row) for row in monthly_data]
+
+#     # Define the layout with the table
+#     layout = [
+#         [sg.Text(f"Monthly Log for {medication_name}", font=("Helvetica", 16), justification='center')],
+#         [sg.Table(values=table_data, headings=headers, max_col_width=25, auto_size_columns=True, justification='left', num_rows=min(10, len(table_data)))]
+#     ]
+#     layout.append([sg.Button("Close", key="-CLOSE-", font=("Helvetica", 11))])
+
+#     # Create and show the window
+#     window = sg.Window(f"Monthly Details for {medication_name}", layout, modal=True)
+
+#     while True:
+#         event, values = window.read()
+#         if event in (sg.WIN_CLOSED, "-CLOSE-"):
+#             break
+
+#     window.close()
 def create_monthly_details_window(resident_name, medication_name, year_month, medication_type):
-    monthly_data = db_functions.fetch_monthly_medication_data(resident_name, medication_name, year_month, medication_type)
-    
+    monthly_data = api_functions.fetch_monthly_medication_data(API_URL, resident_name, medication_name, year_month, medication_type)
+
+    if not monthly_data:
+        sg.popup_error("No data found for the selected month.")
+        return
+
+    # No need to append time to date since 'date' already includes the time component
+    formatted_month_year = datetime.strptime(year_month, '%Y-%m').strftime('%B %Y')
+
     # Define table headers based on medication type
     if medication_type == 'Control':
-        headers = ["Date Administered", "Administered By", "Notes", "Count After Administration"]
-    else:  # PRN medication
-        headers = ["Date Administered", "Administered By", "Notes"]
+        headers = ["Date/Time Administered", "Administered By", "Notes", "Count After Administration"]
+        table_data = [[entry['date'], entry['administered'], entry['notes'], entry.get('current_count', '')] for entry in monthly_data]
+    else:
+        headers = ["Date/Time Administered", "Administered By", "Notes"]
+        table_data = [[entry['date'], entry['administered'], entry['notes']] for entry in monthly_data]
 
-    # Transform data for the table
-    table_data = [list(row) for row in monthly_data]
-
-    # Define the layout with the table
     layout = [
-        [sg.Text(f"Monthly Log for {medication_name}", font=("Helvetica", 16), justification='center')],
+        [sg.Text('', expand_x=True), sg.Text(f"{medication_name} Details for {formatted_month_year}", font=('Helvetica', 17)), sg.Text("", expand_x=True)],
         [sg.Table(values=table_data, headings=headers, max_col_width=25, auto_size_columns=True, justification='left', num_rows=min(10, len(table_data)))]
     ]
-    layout.append([sg.Button("Close", key="-CLOSE-", font=("Helvetica", 11))])
+    layout.append([sg.Text("", expand_x=True), sg.Button("Close", key="-CLOSE-", font=('Helvetica', 14)), sg.Text("", expand_x=True)])
 
-    # Create and show the window
-    window = sg.Window(f"Monthly Details for {medication_name}", layout, modal=True)
-
+    window = sg.Window("Monthly Medication Details", layout, modal=True)
+    
     while True:
         event, values = window.read()
-        if event in (sg.WIN_CLOSED, "-CLOSE-"):
+        if event == sg.WIN_CLOSED or event == "-CLOSE-":
             break
 
     window.close()
@@ -367,7 +404,7 @@ def show_emar_chart(resident_name, year_month, emar_data, discontinued_medicatio
     "- 'ADM' indicates the medication was administered on that day.\n"
     "- 'DC' indicates the medication was discontinued on or after that day.")
 
-    layout.append([sg.Text(instruction_text, key='-INSTRUCTIONS-', font=(db_functions.get_user_font, 11)), sg.Text('', expand_x=True), sg.Text(legend_text, key='-LEGEND-')])
+    layout.append([sg.Text(instruction_text, key='-INSTRUCTIONS-', font=(FONT, 11)), sg.Text('', expand_x=True), sg.Text(legend_text, key='-LEGEND-')])
     layout.append([sg.Button('Save Changes Made'), sg.Button('Hide Buttons/Instructions')])
     # Create the window
     window = sg.Window(' CareTech Monthly eMARS', layout, finalize=True, resizable=True)

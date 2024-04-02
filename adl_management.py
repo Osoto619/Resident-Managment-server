@@ -16,7 +16,9 @@ def get_adl_tab_layout(resident_name, existing_adl_data, resident_care_levels):
     is_supervisory_care = any(resident['name'] == resident_name and resident['level_of_care'] == 'Supervisory Care' for resident in resident_care_levels)
     user_initials = config.global_config['user_initials']
     
-    user_choices = [user_initials, 'S', 'H']  # Add user initials dynamically
+    bm_record_choices = ['S', 'M', 'L', 'XL', 'D', 'N/A']  # Add user initials dynamically
+    adl_choices = [user_initials, 'H', 'S']
+    activities_choices = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15']
 
     # Fields to auto-populate for self-care residents
     auto_self_fields = [
@@ -37,25 +39,25 @@ def get_adl_tab_layout(resident_name, existing_adl_data, resident_care_levels):
             [sg.Text('1st Shift Service Plan', font=(FONT, 12)), sg.Checkbox('', key=f'CHECK_{resident_name}_first_shift_sp', enable_events=True, tooltip='Check to initial', disabled= True if existing_data.get('first_shift_sp', '') != '' else False, default=True if existing_data.get('second_shift_sp', '') != '' else False), sg.InputText(size=4, default_text=existing_data.get('first_shift_sp', ''), key=f'{resident_name}_first_shift_sp', readonly=True),
              sg.Text('2nd Shift Service Plan', font=(FONT, 12)), sg.Checkbox('', key=f'CHECK_{resident_name}_second_shift_sp', enable_events=True, tooltip='Check to initial', disabled= True if existing_data.get('second_shift_sp', '') != '' else False, default=True if existing_data.get('second_shift_sp', '') != '' else False), sg.InputText(size=4, default_text=existing_data.get('second_shift_sp', ''), key=f'{resident_name}_second_shift_sp', readonly=True)],
             [sg.Text("Activities (Use Activities Legend Below)", font=(FONT_BOLD, 14))],
-            [sg.Text('1st Shift 1st Activity', font=(FONT, 12)), sg.InputText(size=4, default_text=existing_data.get('first_shift_activity1', ''), key=f'{resident_name}_first_shift_activity1'),
-             sg.Text("1st Shift 2nd Activity", font=(FONT, 12)), sg.InputText(size=4, default_text=existing_data.get('first_shift_activity2', ''), key=f'{resident_name}_first_shift_activity2')],
-            [sg.Text('1st Shift 3rd Activity', font=(FONT, 12)), sg.InputText(size=4, default_text=existing_data.get('first_shift_activity3', ''), key=f'{resident_name}_first_shift_activity3'),
-             sg.Text("2nd Shift 4th Activity", font=(FONT, 12)), sg.InputText(size=4, default_text=existing_data.get('second_shift_activity4', ''), key=f'{resident_name}_second_shift_activity4')],
+            [sg.Text('1st Shift 1st Activity', font=(FONT, 12)), sg.Combo(activities_choices, default_value=existing_data.get('first_shift_activity1', ''), key=f'{resident_name}_first_shift_activity1', size=(4,1), readonly=True),
+             sg.Text('1st Shift 2nd Activity', font=(FONT, 12)), sg.Combo(activities_choices, default_value=existing_data.get('first_shift_activity2', ''), key=f'{resident_name}_first_shift_activity2', size=(4,1), readonly=True)],
+            [sg.Text('1st Shift 3rd Activity', font=(FONT, 12)), sg.Combo(activities_choices, default_value=existing_data.get('first_shift_activity3', ''), key=f'{resident_name}_first_shift_activity3', size=(4,1), readonly=True),
+             sg.Text('2nd Shift 4th Activity', font=(FONT, 12)), sg.Combo(activities_choices, default_value=existing_data.get('second_shift_activity4', ''), key=f'{resident_name}_second_shift_activity4', size=(4,1), readonly=True)],
              [sg.Text("BM Record Size (S, M, L, XL, or D for Diarrhea)", font=(FONT_BOLD, 14))],
-            [sg.Text('1st Shift Bowel Movement', font=(FONT, 12)),  sg.Combo(user_choices, default_value=input_fields_defaults['first_shift_bm'], key=f'{resident_name}_first_shift_bm', size=(4,1), readonly=True),
-             sg.Text('2nd Shift Bowel Movement', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['second_shift_bm'], key=f'{resident_name}_second_shift_bm')],
-            [sg.Text("ADL's (initial when complete)", font=(FONT_BOLD, 14))],
-            [sg.Text('Shower', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['shower'], key=f'{resident_name}_shower'),
-             sg.Text('Shampoo', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['shampoo'], key=f'{resident_name}_shampoo'),
-             sg.Text('Sponge Bath', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['sponge_bath'], key=f'{resident_name}_sponge_bath'),
-             sg.Text('Peri Care AM', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['peri_care_am'], key=f'{resident_name}_peri_care_am'),
-             sg.Text('Peri Care PM', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['peri_care_pm'], key=f'{resident_name}_peri_care_pm')],
-            [sg.Text('Oral Care AM', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['oral_care_am'], key=f'{resident_name}_oral_care_am'),
-             sg.Text('Oral Care PM', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['oral_care_pm'], key=f'{resident_name}_oral_care_pm'),
-             sg.Text('Nail Care', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['nail_care'], key=f'{resident_name}_nail_care'),
-             sg.Text('Skin Care', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['skin_care'], key=f'{resident_name}_skin_care'),
-             sg.Text('Shave', font=(FONT, 12)), sg.InputText(size=4, default_text=input_fields_defaults['shave'], key=f'{resident_name}_shave')],
-            [sg.Text('Meals (Record Percentage of Meal Eaten)', font=(FONT_BOLD, 14))],
+            [sg.Text('1st Shift Bowel Movement', font=(FONT, 12)),  sg.Combo(bm_record_choices, default_value=input_fields_defaults['first_shift_bm'], key=f'{resident_name}_first_shift_bm', size=(4,1), readonly=True),
+             sg.Text('2nd Shift Bowel Movement', font=(FONT, 12)), sg.Combo(bm_record_choices, default_value=input_fields_defaults['second_shift_bm'], key=f'{resident_name}_second_shift_bm', size=(4,1), readonly=True)],
+            [sg.Text("ADL's (Initial or S for Self, H for Hospice)", font=(FONT_BOLD, 14))],
+            [sg.Text('Shower', font=(FONT, 12)), sg.Combo(adl_choices, default_value=input_fields_defaults['shower'], key=f'{resident_name}_shower', size=(4,1), readonly=True),
+             sg.Text('Shampoo', font=(FONT, 12)), sg.Combo(adl_choices, default_value=input_fields_defaults['shampoo'], key=f'{resident_name}_shampoo', size=(4,1), readonly=True),
+             sg.Text('Sponge Bath', font=(FONT, 12)), sg.Combo(adl_choices, default_value=input_fields_defaults['sponge_bath'], key=f'{resident_name}_sponge_bath', size=(4,1), readonly=True),
+             sg.Text('Peri Care AM', font=(FONT, 12)), sg.Combo(adl_choices, default_value=input_fields_defaults['peri_care_am'], key=f'{resident_name}_peri_care_am', size=(4,1), readonly=True),
+             sg.Text('Peri Care PM', font=(FONT, 12)), sg.Combo(adl_choices, default_value=input_fields_defaults['peri_care_pm'], key=f'{resident_name}_peri_care_pm', size=(4,1), readonly=True)],
+            [sg.Text('Oral Care AM', font=(FONT, 12)), sg.Combo(adl_choices, default_value=input_fields_defaults['oral_care_am'], key=f'{resident_name}_oral_care_am', size=(4,1), readonly=True),
+             sg.Text('Oral Care PM', font=(FONT, 12)), sg.Combo(adl_choices, default_value=input_fields_defaults['oral_care_pm'], key=f'{resident_name}_oral_care_pm', size=(4,1), readonly=True),
+             sg.Text('Nail Care', font=(FONT, 12)), sg.Combo(adl_choices, default_value=input_fields_defaults['nail_care'], key=f'{resident_name}_nail_care', size=(4,1), readonly=True),
+             sg.Text('Skin Care', font=(FONT, 12)), sg.Combo(adl_choices, default_value=input_fields_defaults['skin_care'], key=f'{resident_name}_skin_care', size=(4,1), readonly=True),
+             sg.Text('Shave', font=(FONT, 12)), sg.Combo(adl_choices, default_value=input_fields_defaults['shave'], key=f'{resident_name}_shave', size=(4,1), readonly=True)],
+            [sg.Text('Meals (Record Percentage of Meal Eaten 0-100)', font=(FONT_BOLD, 14))],
             [sg.Text('Breakfast', font=(FONT, 12)), sg.InputText(size=4, default_text=existing_data.get('breakfast', ''), key=f'{resident_name}_breakfast'),
              sg.Text('Lunch', font=(FONT, 12)), sg.InputText(size=4, default_text=existing_data.get('lunch', ''), key=f'{resident_name}_lunch'),
              sg.Text('Dinner', font=(FONT, 12)), sg.InputText(size=4, default_text=existing_data.get('dinner', ''), key=f'{resident_name}_dinner'),

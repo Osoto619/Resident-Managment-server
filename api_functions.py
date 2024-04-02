@@ -863,6 +863,39 @@ def fetch_all_non_medication_orders(api_url, resident_name):
         print(f"Failed to fetch non-medication orders: {response.text}")
         return []
 
+def get_controlled_medication_details(api_url, resident_name, medication_name):
+    """
+    Fetch the count and form of a controlled medication for a specific resident.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident.
+        medication_name (str): The name of the controlled medication.
+
+    Returns:
+        tuple: A tuple containing the medication count and form, or (None, None) on failure.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return None, None
+
+    headers = {'Authorization': f'Bearer {token}'}
+    url = f"{api_url}/get_controlled_medication_details/{resident_name}/{medication_name}"
+
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('count'), data.get('form')
+        else:
+            print("Failed to fetch controlled medication details:", response.json())
+            return None, None
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return None, None
+
+
 # ------------------------------------------------- emar_chart Table --------------------------------------------------------- #
 
 def fetch_emar_data_for_resident(api_url, resident_name):
@@ -950,7 +983,7 @@ def fetch_emar_data_for_month(api_url, resident_name, year_month):
         return []
 
     headers = {'Authorization': f'Bearer {token}'}
-    url = f"{api_url}/fetch_emar_data_for_month/{resident_name}?year_month={year_month}"
+    url = f"{api_url}/fetch_emar_data_for_month/{resident_name}/{year_month}"
     
     try:
         response = requests.get(url, headers=headers)
@@ -1095,6 +1128,81 @@ def fetch_prn_data_for_day(api_url, resident_name, medication_name, year_month, 
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
         return None
+
+
+def fetch_monthly_medication_data(api_url, resident_name, medication_name, year_month, medication_type):
+    """
+    Fetch monthly medication data for a resident from the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident.
+        medication_name (str): The name of the medication.
+        year_month (str): The year and month in 'YYYY-MM' format.
+        medication_type (str): The type of the medication ('Controlled' or 'PRN').
+
+    Returns:
+        list: A list of tuples containing medication data for the specified month, or an empty list on failure.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return []
+
+    headers = {'Authorization': f'Bearer {token}'}
+    url = f"{api_url}/fetch_monthly_medication_data/{resident_name}/{medication_name}/{year_month}/{medication_type}"
+
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            medication_data = response.json()
+            return medication_data
+        else:
+            print("Failed to fetch monthly medication data:", response.json())
+            return []
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return []
+
+
+def save_controlled_administration_data(api_url, resident_name, medication_name, admin_data, new_count):
+    """
+    Save administration data for a controlled medication.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident.
+        medication_name (str): The name of the medication.
+        admin_data (dict): Administration data including datetime, initials, and notes.
+        new_count (int): The new count after administration.
+
+    Returns:
+        bool: True if the data was saved successfully, False otherwise.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+    data = {
+        'resident_name': resident_name,
+        'medication_name': medication_name,
+        'admin_data': admin_data,
+        'new_count': new_count
+    }
+
+    try:
+        response = requests.post(f"{api_url}/save_controlled_administration", json=data, headers=headers)
+        if response.status_code == 200:
+            return True
+        else:
+            print("Failed to save controlled medication administration data:", response.json())
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
 
 # --------------------------------- activities Table ----------------------------------------- #
 

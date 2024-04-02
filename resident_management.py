@@ -165,8 +165,6 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
                 sg.popup('eMAR Data Saved Successfully')
             else:
                 sg.popup('Failed to save eMAR Data')
-
-            
         elif event == '-CURRENT_ADL_CHART-':
             # Get the current month and year
             current_month_year = datetime.now().strftime("%Y-%m")
@@ -193,7 +191,7 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
             else:
                 sg.popup("Failed to load eMAR Data")
         elif event == '-MED_LIST-':
-            medication_data = db_functions.fetch_medications_for_resident(selected_resident)
+            medication_data = api_functions.fetch_medications_for_resident(API_URL, selected_resident)
             pdf.create_medication_list_pdf(selected_resident, medication_data)
         elif event == '-ADL_SEARCH-':
             # year_month should be in the format 'YYYY-MM'
@@ -209,7 +207,6 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
 
             else:
                 sg.popup("No ADL Chart Data Found for the Specified Month and Resident")
-
         elif event == '-EMAR_SEARCH-':
             # year_month should be in the format 'YYYY-MM'
             month = values['-EMAR_MONTH-'].zfill(2)
@@ -231,15 +228,13 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
                     window.un_hide()
                 else:
                     sg.popup("Failed to load eMAR Data")
-
         elif event == '-ADD_MEDICATION-':
             window.close()
             emar_management.add_medication_window(selected_resident)
             results = show_loading_window(API_URL, selected_resident)
             resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data = results
             window = create_management_window(resident_names,selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data,default_tab_index=1)
-        
-        #TODO: Update functions with loading window and include sel
+        #TODO: Update functions with loading window and include selected_resident
         elif event == '-EDIT_MEDICATION-':
             window.close()
             edit_med_win = emar_management.edit_medication_window(selected_resident)
@@ -247,7 +242,9 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
         elif event == '-ADD_NON-MEDICATION-':
             window.close()
             emar_management.add_non_medication_order_window(selected_resident)
-            window = create_management_window(resident_names,selected_resident, default_tab_index=1)
+            results = show_loading_window(API_URL, selected_resident)
+            resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data = results
+            window = create_management_window(resident_names,selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data,default_tab_index=1)
         elif event == '-EDIT_NON_MEDICATION-':
             window.close()
             emar_management.edit_non_med_order_window(selected_resident)
@@ -262,7 +259,7 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
             if med_type == 'PRN':
                 emar_management.prn_administer_window(selected_resident, medication_name)
             elif med_type == 'CONTROLLED':
-                count, form = db_functions.get_controlled_medication_count_and_form(selected_resident, medication_name)
+                count, form = api_functions.get_controlled_medication_details(API_URL, selected_resident, medication_name)
                 emar_management.controlled_administer_window(selected_resident,medication_name, count, form)
         elif event.startswith('-PERFORM_NON_MED_'):
             order_name = event.split('_')[-1][:-1]  # Remove the last character which is a '-'

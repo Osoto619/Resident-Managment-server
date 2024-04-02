@@ -95,26 +95,26 @@ def show_adl_chart(resident_name, year_month):
               row_height=25,
               pad=(0,0),
               hide_vertical_scroll=True)],
-        create_horizontal_bar("Service Plan (initial when completed)"),
+        create_horizontal_bar("Service Plan (Initial when completed)"),
         create_row_label("1st Shift") +
         create_input_text("first_shift_sp"),
         create_row_label("2nd Shift") +
         create_input_text("second_shift_sp"),
         create_horizontal_bar("Activity Record Number (see legend at bottom)"),
-        create_row_label("1st Shift") +
+        create_row_label("1st Shift 1st Activity") +
         create_input_text("first_shift_activity1"),
-        create_row_label("1st Shift") +
+        create_row_label("1st Shift 2nd Activity") +
         create_input_text("first_shift_activity2"),
-        create_row_label("1st Shift") +
+        create_row_label("1st Shift 3rd Activity") +
         create_input_text("first_shift_activity3"),
-        create_row_label("2nd Shift") +
+        create_row_label("2nd Shift 4th Activity") +
         create_input_text("second_shift_activity4"),
         create_horizontal_bar("Bowel Movement Record size of BM and how many if more than one (Example: S, M, L, XL, or D for diarrhea)"),
         create_row_label("1st Shift") +
         create_input_text("first_shift_bm"),
         create_row_label("2nd Shift") +
         create_input_text("second_shift_bm"),
-        create_horizontal_bar("ADL's (initial when complete)"),
+        create_horizontal_bar("ADL's (Initials or S for Self, H for Hospice)"),
         create_row_label("SHOWER") +
         create_input_text("shower"),
         create_row_label("SHAMPOO") +
@@ -148,7 +148,8 @@ def show_adl_chart(resident_name, year_month):
         create_input_text("snack_pm"),
         create_row_label("WATER IN-TAKE") +
         create_input_text("water_intake"),
-        [sg.Text(text='', expand_x=True), [sg.Button('Save Changes Made'), sg.Button('Generate PDF'), sg.Button('Hide Buttons')], activities_frame, sg.Text(text='', expand_x=True)]
+        [sg.Text(text='', expand_x=True), [sg.Button('Generate PDF'), sg.Button('Hide Buttons')], activities_frame, sg.Text(text='', expand_x=True)]
+        #sg.Button('Save Changes Made')
     ]
 
     # Create the window
@@ -178,7 +179,8 @@ def show_adl_chart(resident_name, year_month):
         if event == sg.WIN_CLOSED:
             break
         elif event == 'Hide Buttons':
-            window['Save Changes Made'].update(visible=False)
+            #window['Save Changes Made'].update(visible=False)
+            window['Generate PDF'].update(visible=False)
             window['Hide Buttons'].update(visible=False)
         elif event == 'Save Changes Made':
             db_functions.save_adl_data_from_chart_window(resident_name,year_month, values)
