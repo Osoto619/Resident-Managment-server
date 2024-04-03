@@ -4,7 +4,8 @@ from datetime import datetime
 from adl_chart import show_adl_chart
 import db_functions
 import config
-from new_main import API_URL
+
+API_URL = config.API_URL
 
 FONT = config.global_config['font']
 FONT_BOLD = 'Arial Bold' 

@@ -12,12 +12,16 @@ import threading
 import queue
 from progress_bar import show_progress_bar, show_loading_window, show_loading_window_for_meals
 
+<<<<<<< HEAD
 # Heroku API URL
 API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
 
 # Local API URL
 #API_URL = 'http://127.0.0.1:5000'
 
+=======
+API_URL = config.API_URL
+>>>>>>> 3bd3e0052d350ff699ba4ef4c00da86b57e1b9f9
 
 # Function to load and apply the user's font and theme settings
 def apply_user_settings():
