@@ -12,16 +12,7 @@ import threading
 import queue
 from progress_bar import show_progress_bar, show_loading_window, show_loading_window_for_meals
 
-<<<<<<< HEAD
-# Heroku API URL
-API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
-
-# Local API URL
-#API_URL = 'http://127.0.0.1:5000'
-
-=======
 API_URL = config.API_URL
->>>>>>> 3bd3e0052d350ff699ba4ef4c00da86b57e1b9f9
 
 # Function to load and apply the user's font and theme settings
 def apply_user_settings():
@@ -69,6 +60,7 @@ def enter_resident_info():
              # Determine the selected level of care
             level_of_care = 'Supervisory Care' if values['Supervisory_Care'] else 'Personal Care' if values['Personal_Care'] else 'Directed Care'
             api_functions.insert_resident(API_URL, name, values['Date_of_Birth'], level_of_care)
+            config.global_config['resident_names'] = api_functions.get_resident_names(API_URL)
             #logged_in_user = config.global_config['logged_in_user']
             # api_functions.log_action(API_URL, logged_in_user, 'Resident Added', f'Resident Added {name}')
             # logged server side

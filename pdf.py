@@ -11,16 +11,8 @@ import calendar
 import config
 #from data import breakfast, lunch, dinner
 
-<<<<<<< HEAD
-# Heroku API URL
-API_URL = 'https://resident-mgmt-flask-651cd3003add.herokuapp.com'
-
-# Local API URL
-#API_URL = 'http://127.0.0.1:5000'
-=======
 API_URL = config.API_URL
 
->>>>>>> 3bd3e0052d350ff699ba4ef4c00da86b57e1b9f9
 
 # Custom action to add a footer
 def add_footer(canvas, doc):
