@@ -150,7 +150,7 @@ def show_adl_chart(resident_name, year_month):
         create_input_text("snack_pm"),
         create_row_label("WATER IN-TAKE") +
         create_input_text("water_intake"),
-        [sg.Text(text='', expand_x=True), [sg.Button('Generate PDF'), sg.Button('Hide Buttons')], activities_frame, sg.Text(text='', expand_x=True)]
+        [sg.Text(text='', expand_x=True), [sg.Button('Save Changes Made'), sg.Button('Generate PDF'), sg.Button('Hide Buttons')], activities_frame, sg.Text(text='', expand_x=True)]
         #sg.Button('Save Changes Made')
     ]
 
@@ -181,12 +181,26 @@ def show_adl_chart(resident_name, year_month):
         if event == sg.WIN_CLOSED:
             break
         elif event == 'Hide Buttons':
-            #window['Save Changes Made'].update(visible=False)
+            window['Save Changes Made'].update(visible=False)
             window['Generate PDF'].update(visible=False)
             window['Hide Buttons'].update(visible=False)
         elif event == 'Save Changes Made':
-            db_functions.save_adl_data_from_chart_window(resident_name,year_month, values)
-            sg.popup("Changes Have Been Saved")
+            adl_data = []
+            for day in range(1, 32):  # Assuming a maximum of 31 days in a month
+                day_data = {key.split('-')[1]: values[key] for key in values if key.endswith(f'-{day}-') and values[key].strip()}
+                if day_data:  # If there's data for this day, add it to the list
+                    adl_data.append({'chart_date': f'{year_month}-{day:02d}', 'data': day_data})
+
+            if adl_data:
+                response = api_functions.save_adl_data_from_chart_window(API_URL, resident_name, year_month, adl_data)
+                if response == 'token_expired':
+                    from new_main import logout
+                    logout()
+                elif response:
+                    sg.popup("ADL data saved successfully.")
+                else:
+                    sg.popup_error("Failed to save ADL data.")
+
         elif event == 'Generate PDF':
             pdf.generate_adl_chart_pdf(resident_name, year_month, adl_data)
 

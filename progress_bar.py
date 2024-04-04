@@ -64,8 +64,16 @@ def load_resident_management_data(api_url, selected_resident=None):
             # Pre-existing calls
             #resident_names = api_functions.get_resident_names(api_url)
             resident_names = api_functions.get_resident_names(api_url) if config.global_config['resident_names'] is None else config.global_config['resident_names']
+            if resident_names == 'token_expired':
+                result_queue.put('token_expired')
+                return
+            resident_names = sorted(resident_names)
             config.global_config['resident_names'] = resident_names
+            
             user_initials = api_functions.get_user_initials(api_url) if config.global_config['user_initials'] is None else config.global_config['user_initials']
+            if user_initials == 'token_expired':
+                result_queue.put('token_expired')
+                return
             config.global_config['user_initials'] = user_initials
 
             #selected_resident_name = resident_names[0]
@@ -77,12 +85,22 @@ def load_resident_management_data(api_url, selected_resident=None):
 
             # Fetching ADL data
             existing_adl_data = api_functions.fetch_adl_data_for_resident(api_url, selected_resident_name)
+            if existing_adl_data == 'token_expired':
+                result_queue.put('token_expired')
+                return
+            
             resident_care_levels = api_functions.get_resident_care_level(api_url) if config.global_config['resident_care_levels'] is None else config.global_config['resident_care_levels']
+            if resident_care_levels == 'token_expired':
+                result_queue.put('token_expired')
+                return
             config.global_config['resident_care_levels'] = resident_care_levels
             
 
             # Fetching EMAR data
             all_medications_data = api_functions.fetch_medications_for_resident(api_url, selected_resident_name)
+            if all_medications_data == 'token_expired':
+                result_queue.put('token_expired')
+                return
 
             # Extracting medication names and removing duplicates
             scheduled_meds = [med_name for time_slot in all_medications_data['Scheduled'].values() for med_name in time_slot]
@@ -91,10 +109,20 @@ def load_resident_management_data(api_url, selected_resident=None):
             all_meds = list(set(scheduled_meds + prn_meds + controlled_meds))
 
             active_medications = api_functions.filter_active_medications(api_url, selected_resident_name, all_meds)
-            non_medication_orders = api_functions.fetch_all_non_medication_orders(api_url, selected_resident_name)
-            existing_emar_data = api_functions.fetch_emar_data_for_resident(api_url, selected_resident_name)
+            if active_medications == 'token_expired':
+                result_queue.put('token_expired')
+                return
             
-
+            non_medication_orders = api_functions.fetch_all_non_medication_orders(api_url, selected_resident_name)
+            if non_medication_orders == 'token_expired':
+                result_queue.put('token_expired')
+                return
+            
+            existing_emar_data = api_functions.fetch_emar_data_for_resident(api_url, selected_resident_name)
+            if existing_emar_data == 'token_expired':
+                result_queue.put('token_expired')
+                return
+            
             # Package the results
             results = (resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data)
             result_queue.put(results)
@@ -160,12 +188,21 @@ def load_emar_data(api_url, resident_name, year_month):
         try:
             # Fetch eMAR data for the month
             emar_data = api_functions.fetch_emar_data_for_month(api_url, resident_name, year_month)
+            if emar_data == 'token_expired':
+                result_queue.put('token_expired')
+                return
 
             # Fetch discontinued medications with their discontinuation dates
             discontinued_medications = api_functions.fetch_discontinued_medications(api_url, resident_name)
+            if discontinued_medications == 'token_expired':
+                result_queue.put('token_expired')
+                return
 
             # Fetch original structure of medications for the resident
             original_structure = api_functions.fetch_medications_for_resident(api_url, resident_name)
+            if original_structure == 'token_expired':
+                result_queue.put('token_expired')
+                return
 
             # Package the results
             results = (emar_data, discontinued_medications, original_structure)

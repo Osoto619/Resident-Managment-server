@@ -2,6 +2,7 @@ import requests
 import keyring
 import urllib.parse
 import PySimpleGUI as sg
+from config import API_URL
 
 
 # ---------------------------- users Table ---------------------------- #
@@ -130,6 +131,8 @@ def create_user(api_url, username, password, user_role='User', is_temp_password=
         if response.status_code == 201:
             print("User created successfully.")
             return True
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print(f"Failed to create user: {response.json()}")
             return False
@@ -198,6 +201,8 @@ def update_password(api_url, username, new_password):
         elif response.status_code == 404:
             print("User not found.")
             return False
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print(f"Failed to change password: {response.json()}")
             return False
@@ -256,12 +261,78 @@ def get_user_initials(api_url):
         if response.status_code == 200:
             result = response.json()
             return result.get('initials', '')
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch user initials:", response.json())
             return ''
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
         return ''
+
+
+def get_all_users(api_url):
+    """
+    Fetch a list of all user usernames from the API.
+
+    Args:
+        api_url (str): The base URL of the API.
+
+    Returns:
+        list: A list of usernames or None on failure.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return None
+
+    headers = {'Authorization': f'Bearer {token}'}
+    try:
+        response = requests.get(f"{api_url}/get_all_users", headers=headers)
+        if response.status_code == 200:
+            return response.json
+        elif response.status_code == 401:
+            return 'token_expired'
+        else:
+            print(f"Failed to fetch users: {response.json()}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return None
+
+
+def remove_user(api_url, username):
+    """
+    Remove a user from the database using the Flask API.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        username (str): The username of the user to remove.
+
+    Returns:
+        bool: True if the user was removed successfully, False otherwise.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}'}
+    data = {"username": username}
+
+    try:
+        response = requests.post(f"{api_url}/remove_user", json=data, headers=headers)
+        if response.status_code == 200:
+            print(f"User {username} removed successfully.")
+            return True
+        elif response.status_code == 401:
+            return 'token_expired'
+        else:
+            print(f"Failed to remove user: {response.json()}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
 
 # ----------------------------------------------------- user_settings Table ---------------------------------------- #
 
@@ -364,6 +435,8 @@ def fetch_audit_logs(api_url, last_10_days=False, username='', action='', date='
         response = requests.get(f"{api_url}/fetch_audit_logs", headers=headers, params=params)
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch audit logs:", response.text)
             return []
@@ -419,6 +492,8 @@ def get_resident_care_level(api_url):
         if response.status_code == 200:
             result = response.json()
             return result.get('residents', [])
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch resident care levels:", response.json())  # For debugging
             return []
@@ -451,6 +526,8 @@ def get_resident_names(api_url):
             # Assuming the JSON structure includes a "names" key
             names = response.json().get('names', [])
             return names
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch resident names:", response.json())  # For debugging
             return []
@@ -489,6 +566,8 @@ def insert_resident(api_url, name, date_of_birth, level_of_care):
         if response.status_code == 201:
             print("Resident inserted successfully.")
             return True
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to insert resident:", response.json())
             return False
@@ -520,6 +599,8 @@ def remove_resident(api_url, resident_name):
         if response.status_code == 200:
             print("Resident removed successfully.")
             return True
+        elif response.status_code == 401:
+            return 'token_expired'
         elif response.status_code == 403:
             print("Unauthorized to remove resident.")
             return False
@@ -561,6 +642,8 @@ def fetch_adl_data_for_resident(api_url, resident_name):
         if response.status_code == 200:
             result = response.json()
             return result
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch ADL data:", response.json())
             return {}
@@ -588,6 +671,8 @@ def fetch_adl_chart_data_for_month(api_url, resident_name, year_month):
         if response.status_code == 200:
             result = response.json()
             return result
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch ADL chart data:", response.json())
             return []
@@ -625,6 +710,8 @@ def save_adl_data_from_management_window(api_url, resident_name, adl_data, audit
         if response.status_code == 200:
             print("ADL data saved successfully.")
             return True
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to save ADL data:", response.json())
             return False
@@ -651,12 +738,56 @@ def does_adl_chart_exist(api_url, resident_name, year_month):
         if response.status_code == 200:
             result = response.json()
             return result.get('exists', False)
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print(f"Failed to check ADL chart existence: {response.json()}")
             return False
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
         return False
+
+
+def save_adl_data_from_chart_window(api_url, resident_name, year_month, adl_data):
+    """
+    Save ADL data for a specific resident and month.
+
+    Args:
+        api_url (str): The base URL of the Flask API.
+        resident_name (str): The name of the resident.
+        year_month (str): The year and month in 'YYYY-MM' format.
+        adl_data (list): A list of dictionaries containing ADL data for each day.
+
+    Returns:
+        bool: True if the data was saved successfully, False otherwise.
+    """
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}'}
+    data = {
+        "resident_name": resident_name,
+        "year_month": year_month,
+        "adl_data": adl_data
+    }
+
+    try:
+        response = requests.post(f"{api_url}/save_adl_data_from_chart", json=data, headers=headers)
+        if response.status_code == 200:
+            print("ADL data saved successfully.")
+            return True
+        elif response.status_code == 401:
+            return 'token_expired'
+        else:
+            print("Failed to save ADL data:", response.json())
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+
+
 
 # -------------------------------------------------- medications Table ------------------------------------------------ #
 
@@ -701,6 +832,8 @@ def insert_medication(api_url, resident_name, medication_name, dosage, instructi
         if response.status_code == 200:
             print("Medication inserted successfully.")
             return True
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print(f"Failed to insert medication: {response.text}")
             return False
@@ -735,9 +868,12 @@ def fetch_medications_for_resident(api_url, resident_name):
         response = requests.get(full_url, headers=headers)
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch medications:", response.text)
             return {}
+        
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
         return {}
@@ -766,6 +902,8 @@ def fetch_discontinued_medications(api_url, resident_name):
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch discontinued medications:", response.text)
             return {}
@@ -805,6 +943,8 @@ def filter_active_medications(api_url, resident_name, medication_names):
         if response.status_code == 200:
             # Expecting the server to return a list of active medication names
             return response.json().get('active_medications', [])
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to filter medications:", response.text)
             return []
@@ -834,6 +974,8 @@ def save_non_medication_order(api_url, resident_name, order_data):
 
     if response.status_code == 200:
         print("Non-medication order added successfully.")
+    elif response.status_code == 401:
+            return 'token_expired'
     else:
         print(f"Failed to add non-medication order: {response.text}")
 
@@ -859,6 +1001,8 @@ def fetch_all_non_medication_orders(api_url, resident_name):
 
     if response.status_code == 200:
         return response.json()
+    elif response.status_code == 401:
+            return 'token_expired'
     else:
         print(f"Failed to fetch non-medication orders: {response.text}")
         return []
@@ -888,6 +1032,8 @@ def get_controlled_medication_details(api_url, resident_name, medication_name):
         if response.status_code == 200:
             data = response.json()
             return data.get('count'), data.get('form')
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch controlled medication details:", response.json())
             return None, None
@@ -925,6 +1071,8 @@ def fetch_emar_data_for_resident(api_url, resident_name):
         response = requests.get(full_url, headers=headers)
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch eMAR data:", response.text)
             return {}
@@ -957,6 +1105,8 @@ def fetch_emar_data_for_resident_audit_log(api_url, resident_name):
         if response.status_code == 200:
             emar_data = response.json()
             return emar_data
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print(f"Failed to fetch eMAR data for {resident_name}:", response.json())
             return []
@@ -990,6 +1140,8 @@ def fetch_emar_data_for_month(api_url, resident_name, year_month):
         if response.status_code == 200:
             emar_data = response.json()
             return emar_data
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch eMAR data:", response.json())
             return []
@@ -1023,6 +1175,8 @@ def save_emar_data_from_management_window(api_url, emar_data, audit_description)
         if response.status_code in [200, 201]:
             print("EMAR data saved successfully.")
             return response.json()
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print(f"Failed to save EMAR data: {response.text}")
             return response.json()
@@ -1087,6 +1241,8 @@ def save_prn_administration_data(api_url, resident_name, medication_name, admin_
         if response.status_code == 201:
             print("Administration data saved successfully.")
             return True
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print(f"Failed to save administration data: {response.json()}")
             return False
@@ -1122,6 +1278,8 @@ def fetch_prn_data_for_day(api_url, resident_name, medication_name, year_month, 
         if response.status_code == 200:
             prn_data = response.json()
             return prn_data
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print(f"Failed to fetch PRN data: {response.json()}")
             return None
@@ -1157,6 +1315,8 @@ def fetch_monthly_medication_data(api_url, resident_name, medication_name, year_
         if response.status_code == 200:
             medication_data = response.json()
             return medication_data
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to fetch monthly medication data:", response.json())
             return []
@@ -1196,6 +1356,8 @@ def save_controlled_administration_data(api_url, resident_name, medication_name,
         response = requests.post(f"{api_url}/save_controlled_administration", json=data, headers=headers)
         if response.status_code == 200:
             return True
+        elif response.status_code == 401:
+            return 'token_expired'
         else:
             print("Failed to save controlled medication administration data:", response.json())
             return False

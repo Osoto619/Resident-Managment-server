@@ -29,7 +29,7 @@ def create_tab_layout(resident_name, existing_adl_data, resident_care_levels, al
 
 
 def create_management_window(resident_names, selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data, default_tab_index=0):
-    resident_selector = sg.Combo(resident_names, default_value=selected_resident, key='-RESIDENT-', readonly=True, enable_events=True, font=('Helvetica', 11))
+    resident_selector = sg.Combo(sorted(resident_names), default_value=selected_resident, key='-RESIDENT-', readonly=True, enable_events=True, font=('Helvetica', 11))
 
     tabs = create_tab_layout(selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data)
     tab_group = sg.TabGroup([tabs], key='-TABGROUP-', font=('Arial', 11))
@@ -119,7 +119,6 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
     
     user_initials = config.global_config['user_initials']
     
-    
     window = create_management_window(resident_names, selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data)
 
     while True:
@@ -185,7 +184,10 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
             # Get the current month and year
             current_month_year = datetime.now().strftime("%Y-%m")
             results = show_loading_window_for_emar(API_URL, selected_resident, current_month_year)
-            if results:
+            if results == 'token_expired':
+                from new_main import logout
+                logout()
+            elif results:
                 emar_data, discontinued_medications, original_structure = results
                 window.hide()
                 show_emar_chart(selected_resident,current_month_year, emar_data, discontinued_medications, original_structure)
@@ -223,7 +225,10 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
             #     sg.popup("No eMARs Chart Data Found for the Specified Month and Resident")
             if api_functions.does_emar_chart_exist(API_URL, selected_resident, year_month):
                 results = show_loading_window_for_emar(API_URL, selected_resident, year_month)
-                if results:
+                if results == 'token_expired':
+                    from new_main import logout
+                    logout()
+                elif results:
                     emar_data, discontinued_medications, original_structure = results
                     window.hide()
                     show_emar_chart(selected_resident, year_month, emar_data, discontinued_medications, original_structure)

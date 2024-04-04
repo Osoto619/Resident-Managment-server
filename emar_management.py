@@ -16,14 +16,15 @@ def add_medication_window(resident_name):
     measurement_unit_options = ['Pills', 'mL', 'L', 'oz']  # Measurement units for liquids
 
     layout = [
-        [sg.Text('Medication Type', size=(18, 1)), sg.Combo(medication_type_options, default_value='Scheduled', key='Medication Type', readonly=True, enable_events=True)],
-        [sg.Text('Medication Name', size=(18, 1)), sg.InputText(key='Medication Name')],
-        [sg.Text('Dosage', size=(18, 1)), sg.InputText(key='Dosage')],
-        [sg.Text('Instructions', size=(18, 1)), sg.InputText(key='Instructions')],
-        [sg.Text('(Instructions Required For PRN and Controlled Medication)')],
-        [sg.Frame('Time Slots (Select All That Apply)', [[sg.Checkbox(slot, key=f'TIME_SLOT_{slot}') for slot in ['Morning', 'Noon', 'Evening', 'Night']]], key='Time Slots Frame', visible=True)],
+        [sg.Text('Medication Type', size=(18, 1), font=(FONT, 15)), sg.Combo(medication_type_options, default_value='Scheduled', key='Medication Type', readonly=True, enable_events=True, font=(FONT, 15))],
+        [sg.Text('Medication Name', size=(18, 1), font=(FONT, 15)), sg.InputText(key='Medication Name', font=(FONT, 14))],
+        [sg.Text('Dosage', size=(18, 1), font=(FONT, 15)), sg.InputText(key='Dosage', font=(FONT, 14))],
+        [sg.Text('Instructions', size=(18, 1), font=(FONT, 15)), sg.InputText(key='Instructions', font=(FONT, 14))],
+        [sg.Text('(Instructions Required For PRN and Controlled Medication)', font=(FONT, 14))],
+        [sg.Text('', expand_x=True), sg.Frame('Time Slots (Select All That Apply)', [[sg.Checkbox(slot, key=f'TIME_SLOT_{slot}') for slot in ['Morning', 'Noon', 'Evening', 'Night']]], key='Time Slots Frame', visible=True, font=(FONT, 13)), 
+         sg.Text('', expand_x=True)],
         [sg.Text('Count', size=(6, 1), key=('Count Text'), visible=False), sg.InputText(key='Count', enable_events=True, visible=False, size=6), sg.Combo(measurement_unit_options, default_value='Pills', key='Measurement Unit', visible=False)],
-        [sg.Submit(), sg.Cancel()]
+        [sg.Text('', expand_x=True), sg.Submit(font=(FONT, 13)), sg.Cancel(font=(FONT, 13)), sg.Text('', expand_x=True)]
     ]
 
     window = sg.Window('Add Medication', layout)
@@ -97,8 +98,10 @@ def add_medication_window(resident_name):
             # Insert the new medication
             #success = api_functions.insert_medication(API_URL, resident_name, medication_name, dosage, instructions, medication_type, selected_time_slots, medication_form, medication_count)
             success = show_progress_bar(api_functions.insert_medication, API_URL, resident_name, medication_name, dosage, instructions, medication_type, selected_time_slots, medication_form, medication_count)
-
-            if success:
+            if success == 'token_expired':
+                from new_main import logout
+                logout()
+            elif success:
                 sg.popup('Medication added successfully.')
             
             window.close()

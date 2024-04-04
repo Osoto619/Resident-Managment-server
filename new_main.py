@@ -1,5 +1,6 @@
 import PySimpleGUI as sg
 import api_functions
+import keyring
 import resident_management
 from datetime import datetime, timedelta, date
 from tkinter import font
@@ -195,7 +196,7 @@ def change_theme_window():
 
 #     window.close()
 
-# ----------------- User Management Functions -----------------
+# --------------------------------- User Management Functions ------------------------------------------------
 
 def create_initial_admin_account_window():
 
@@ -303,44 +304,44 @@ def add_user_window():
     window.close()
 
 
-# def remove_user_window():
-#     # Fetch usernames for the dropdown
-#     usernames = db_functions.get_all_usernames()
+def remove_user_window():
+    # Fetch usernames for the dropdown
+    usernames = api_functions.get_all_users(API_URL)
 
-#     layout = [
-#         [sg.Text("Select User:"), sg.Combo(usernames, key='-USERNAME-')],
-#         [sg.Text("Reason for Removal:"), sg.InputText(key='-REASON-')],
-#         [sg.Button("Remove User"), sg.Button("Cancel")]
-#     ]
+    layout = [
+        [sg.Text("Select User:"), sg.Combo(usernames, key='-USERNAME-')],
+        [sg.Text("Reason for Removal:"), sg.InputText(key='-REASON-')],
+        [sg.Button("Remove User"), sg.Button("Cancel")]
+    ]
 
-#     window = sg.Window("Remove User", layout)
+    window = sg.Window("Remove User", layout)
 
-#     while True:
-#         event, values = window.read()
-#         if event == sg.WIN_CLOSED or event == "Cancel":
-#             break
-#         elif event == "Remove User":
-#             username = values['-USERNAME-']
-#             reason = values['-REASON-'].strip()
+    while True:
+        event, values = window.read()
+        if event == sg.WIN_CLOSED or event == "Cancel":
+            break
+        elif event == "Remove User":
+            username = values['-USERNAME-']
+            reason = values['-REASON-'].strip()
 
-#             if not username or not reason:
-#                 sg.popup_error("Both username and reason for removal are required.")
-#                 continue
+            if not username or not reason:
+                sg.popup_error("Both username and reason for removal are required.")
+                continue
             
-#             # Confirmation popup
-#             confirm = sg.popup_yes_no(f"Are you sure you want to remove '{username}'?", title="Confirm Removal")
-#             if confirm == "Yes":
-#                 try:
-#                     db_functions.remove_user(username) 
-#                     db_functions.log_action(config.global_config['logged_in_user'], 'User Removal', f"User '{username}' removed. Reason: {reason}")
-#                     sg.popup(f"User '{username}' has been removed successfully.")
-#                     break
-#                 except Exception as e:
-#                     sg.popup_error(f"Error removing user: {e}")
-#             else:
-#                 sg.popup("User removal cancelled.")
+            # Confirmation popup
+            confirm = sg.popup_yes_no(f"Are you sure you want to remove '{username}'?", title="Confirm Removal")
+            if confirm == "Yes":
+                try:
 
-#     window.close()
+                    if api_functions.remove_user(API_URL, username):
+                        api_functions.log_action(API_URL, config.global_config['logged_in_user'], 'User Removal', f"User '{username}' removed. Reason: {reason}")
+                        sg.popup(f"User '{username}' has been removed successfully.")
+                        break
+                except Exception as e:
+                    sg.popup_error(f"Error removing user: {e}")
+            else:
+                sg.popup("User removal cancelled.")
+    window.close()
 
 
 def login_window():
@@ -385,6 +386,17 @@ def login_window():
                 sg.popup("Invalid username or password.", title="Error")
 
     window.close()
+
+
+def logout():
+    """
+    Logs the user out by clearing the saved token and showing the login window.
+    """
+    # Clear saved token
+    keyring.set_password('CareTechApp', 'access_token', None)
+    
+    # Show login window
+    display_welcome_window(api_functions.get_resident_count(API_URL), show_login=True, show_time_out=True)
 
 
 def audit_logs_window():
@@ -745,7 +757,7 @@ def generate_calendar_window():
 
 # -------------------------------------------------------- main window ---------------------------------------------------------
 
-def display_welcome_window(num_of_residents_local, show_login=False):
+def display_welcome_window(num_of_residents_local, show_login=False, show_time_out=False):
     if config.global_config['is_first_time_setup'] is None:
         config.global_config['is_first_time_setup'] = api_functions.is_first_time_setup(API_URL)
         
@@ -758,6 +770,9 @@ def display_welcome_window(num_of_residents_local, show_login=False):
     if config.global_config['is_first_time_setup'] is True:
         create_initial_admin_account_window()
         sys.exit(0)
+    
+    if show_time_out:
+        sg.popup_error('Session timed out. Please log in again.', title='Session Timeout')
         
     if show_login:
         login_window()
@@ -817,7 +832,9 @@ def display_welcome_window(num_of_residents_local, show_login=False):
                 sg.popup("Your Facility Has No Residents. Please Click 'Add Resident'.", font=("Helvetica", 12), title='Error - No Residents')
             else:
                 results = show_loading_window(API_URL)
-                if results:
+                if results == 'token_expired':
+                    logout()
+                elif results:
                     # Unpack the results directly if you are sure all will always be returned successfully
                     resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data = results
                     window.hide()
@@ -833,10 +850,10 @@ def display_welcome_window(num_of_residents_local, show_login=False):
         #     window.close()
         #     enter_resident_edit()
         #     display_welcome_window(db_functions.get_resident_count())
-        # elif event == 'Remove User':
-        #     window.hide
-        #     remove_user_window()
-        #     window.un_hide()
+        elif event == 'Remove User':
+            window.hide
+            remove_user_window()
+            window.un_hide()
         elif event == 'View Audit Logs':
             window.hide()
             audit_logs_window()
