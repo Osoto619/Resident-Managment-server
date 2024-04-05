@@ -4,6 +4,7 @@ from datetime import datetime
 import db_functions
 import api_functions
 import config
+from progress_bar import show_progress_bar
 
 API_URL = config.API_URL
 
@@ -542,8 +543,13 @@ def show_emar_chart(resident_name, year_month, emar_data, discontinued_medicatio
             window['-INSTRUCTIONS-'].update(visible=False)
             window['-LEGEND-'].update(visible=False)
         elif event == 'Save Changes Made':
-            db_functions.save_emar_data_from_chart_window(resident_name,year_month,values)
-            sg.popup("Changes Have Been Saved")
+            #print(f'VALUES: {values}')
+            success = api_functions.save_emar_data_from_chart_window(API_URL, resident_name, year_month, values)
+            #show_progress_bar(api_functions.save_adl_data_from_chart_window, API_URL, resident_name, year_month, values)
+            if success:
+                sg.popup("Data saved successfully.")
+            else:
+                sg.popup_error("Failed to save data.")
         elif event.startswith('-PRN'):
             _, med_name, _, _ = event.split('-')
             parts = med_name.split('_')

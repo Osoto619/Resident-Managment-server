@@ -1042,7 +1042,7 @@ def get_controlled_medication_details(api_url, resident_name, medication_name):
         return None, None
 
 
-# ------------------------------------------------- emar_chart Table --------------------------------------------------------- #
+# ---------------------------------------------------- emar_chart Table ----------------------------------------------------------------- #
 
 def fetch_emar_data_for_resident(api_url, resident_name):
     """
@@ -1364,6 +1364,54 @@ def save_controlled_administration_data(api_url, resident_name, medication_name,
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
         return False
+
+
+def save_emar_data_from_chart_window(api_url, resident_name, year_month, values):
+    token = keyring.get_password('CareTechApp', 'access_token')
+    if not token:
+        print("No authentication token found. Please log in.")
+        return False
+
+    headers = {'Authorization': f'Bearer {token}'}
+    emar_data = []
+
+    num_days = 31
+    for day in range(1, num_days + 1):
+        date_str = f"{year_month}-{str(day).zfill(2)}"
+        
+        for key, value in values.items():
+            if key.startswith('-') and key.endswith(f'-{day}-') and value.strip():
+                parts = key.strip('-').split('_')
+                medication_name = '_'.join(parts[:-1])  # Rejoin all parts except the last one
+                time_slot = parts[-1].split('-')[0]
+
+                emar_data.append({
+                    'chart_date': date_str,
+                    'medication_name': medication_name,
+                    'time_slot': time_slot,
+                    'administered': value
+                })
+
+    if not emar_data:
+        print("No eMAR data to save.")
+        return False
+
+    data = {
+        "resident_name": resident_name,
+        "year_month": year_month,
+        "emar_data": emar_data
+    }
+
+    response = requests.post(f"{api_url}/save_emar_data_from_chart", json=data, headers=headers)
+    if response.status_code == 200:
+        print("eMAR data saved successfully.")
+        return True
+    elif response.status_code == 401:
+        return 'token_expired'
+    else:
+        print(f"Failed to save eMAR data: {response.json()}")
+        return False
+
 
 
 # --------------------------------- activities Table ----------------------------------------- #

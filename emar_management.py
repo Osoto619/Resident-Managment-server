@@ -415,7 +415,7 @@ def create_medication_entry(medication_name, dosage, instructions, time_slot, ad
     return [
         sg.Checkbox('', key=f'-CHECK_{medication_name}_{time_slot}-', enable_events=True, tooltip='Check if administered', disabled=True if administered != '' else False,
                     default=True if administered != '' else False),
-        sg.InputText(default_text=administered, key=f'-GIVEN_{medication_name}_{time_slot}-', size=3, readonly=True),
+        sg.InputText(default_text=administered, key=f'-GIVEN_{medication_name}_{time_slot}-', size=3, readonly=False),
         sg.Text(text=medication_name + " " + dosage, size=(25, 1), font=(FONT, 13)),
         sg.Text(instructions, size=(30, 1), font=(FONT, 13))
     ]
@@ -638,16 +638,6 @@ def edit_non_med_order_window(selected_resident):
 
 
 def get_emar_tab_layout(resident_name, all_medications_data, active_medications, non_medication_orders, existing_emar_data):
-    # Fetch medications for the resident, including both scheduled and PRN
-    #all_medications_data = api_functions.fetch_medications_for_resident(API_URL, resident_name)
-    
-    # Extracting medication names and removing duplicates
-    # scheduled_meds = [med_name for time_slot in all_medications_data['Scheduled'].values() for med_name in time_slot]
-    # prn_meds = list(all_medications_data['PRN'].keys())
-    # controlled_meds = list(all_medications_data['Controlled'].keys())
-    # all_meds = list(set(scheduled_meds + prn_meds + controlled_meds))
-    # Filter out discontinued medications
-    #active_medications = api_functions.filter_active_medications(API_URL, resident_name, all_meds)
     
     filtered_medications_data = filter_medications_data(all_medications_data, active_medications)
     

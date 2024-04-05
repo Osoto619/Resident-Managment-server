@@ -394,7 +394,7 @@ def logout():
     """
     # Clear saved token
     keyring.set_password('CareTechApp', 'access_token', None)
-    
+
     # Show login window
     display_welcome_window(api_functions.get_resident_count(API_URL), show_login=True, show_time_out=True)
 
@@ -776,6 +776,8 @@ def display_welcome_window(num_of_residents_local, show_login=False, show_time_o
         
     if show_login:
         login_window()
+        if show_time_out:
+            return
 
     logged_in_user = config.global_config['logged_in_user']
 
