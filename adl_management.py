@@ -17,7 +17,7 @@ def get_adl_tab_layout(resident_name, existing_adl_data, resident_care_levels):
     is_supervisory_care = any(resident['name'] == resident_name and resident['level_of_care'] == 'Supervisory Care' for resident in resident_care_levels)
     user_initials = config.global_config['user_initials']
     
-    bm_record_choices = ['S', 'M', 'L', 'XL', 'D', 'N/A']  # Add user initials dynamically
+    bm_record_choices = ['SM', 'M', 'L', 'XL', 'D', 'N/A', 'S']  # Add user initials dynamically
     adl_choices = [user_initials, 'H', 'S']
     activities_choices = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15']
 
@@ -44,7 +44,7 @@ def get_adl_tab_layout(resident_name, existing_adl_data, resident_care_levels):
              sg.Text('1st Shift 2nd Activity', font=(FONT, 12)), sg.Combo(activities_choices, default_value=existing_data.get('first_shift_activity2', ''), key=f'{resident_name}_first_shift_activity2', size=(4,1), readonly=True)],
             [sg.Text('1st Shift 3rd Activity', font=(FONT, 12)), sg.Combo(activities_choices, default_value=existing_data.get('first_shift_activity3', ''), key=f'{resident_name}_first_shift_activity3', size=(4,1), readonly=True),
              sg.Text('2nd Shift 4th Activity', font=(FONT, 12)), sg.Combo(activities_choices, default_value=existing_data.get('second_shift_activity4', ''), key=f'{resident_name}_second_shift_activity4', size=(4,1), readonly=True)],
-             [sg.Text("BM Record Size (S, M, L, XL, or D for Diarrhea)", font=(FONT_BOLD, 14))],
+             [sg.Text("BM Record Size (SM, M, L, XL, or D for Diarrhea, S for Self)", font=(FONT_BOLD, 14))],
             [sg.Text('1st Shift Bowel Movement', font=(FONT, 12)),  sg.Combo(bm_record_choices, default_value=input_fields_defaults['first_shift_bm'], key=f'{resident_name}_first_shift_bm', size=(4,1), readonly=True),
              sg.Text('2nd Shift Bowel Movement', font=(FONT, 12)), sg.Combo(bm_record_choices, default_value=input_fields_defaults['second_shift_bm'], key=f'{resident_name}_second_shift_bm', size=(4,1), readonly=True)],
             [sg.Text("ADL's (Initial or S for Self, H for Hospice)", font=(FONT_BOLD, 14))],

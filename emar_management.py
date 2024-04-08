@@ -224,9 +224,11 @@ def get_medication_list(medication_data):
 
 
 def edit_medication_window(selected_resident):
-    resident_id = db_functions.get_resident_id(selected_resident)
-    med_data = db_functions.fetch_medications_for_resident(selected_resident)
+    #resident_id = db_functions.get_resident_id(selected_resident)
+    med_data = api_functions.fetch_medications_for_resident(API_URL, selected_resident)
+    #med_data = db_functions.fetch_medications_for_resident(selected_resident)
     med_list = get_medication_list(med_data)
+    
     layout = [
         [sg.Text('Select Medication:'), sg.Combo(med_list, key='-MEDICATION-', readonly=True)],
         [sg.Text('New Medication Name:'), sg.InputText(key='-NEW_MED_NAME-')],

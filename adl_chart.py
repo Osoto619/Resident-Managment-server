@@ -103,15 +103,15 @@ def show_adl_chart(resident_name, year_month):
         create_row_label("2nd Shift") +
         create_input_text("second_shift_sp"),
         create_horizontal_bar("Activity Record Number (see legend at bottom)"),
-        create_row_label("1st Shift 1st Activity") +
+        create_row_label("1st Activity") +
         create_input_text("first_shift_activity1"),
-        create_row_label("1st Shift 2nd Activity") +
+        create_row_label("2nd Activity") +
         create_input_text("first_shift_activity2"),
-        create_row_label("1st Shift 3rd Activity") +
+        create_row_label("3rd Activity") +
         create_input_text("first_shift_activity3"),
-        create_row_label("2nd Shift 4th Activity") +
+        create_row_label("4th Activity") +
         create_input_text("second_shift_activity4"),
-        create_horizontal_bar("Bowel Movement Record size of BM and how many if more than one (Example: S, M, L, XL, or D for diarrhea)"),
+        create_horizontal_bar("Bowel Movement Record size of BM and how many if more than one (Example: SM, M, L, XL, or D for diarrhea, S for self)"),
         create_row_label("1st Shift") +
         create_input_text("first_shift_bm"),
         create_row_label("2nd Shift") +

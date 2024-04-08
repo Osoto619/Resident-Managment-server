@@ -217,12 +217,6 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
             year = values['-EMAR_YEAR-']
             year_month = f'{year}-{month}'
             
-            # if api_functions.does_emar_chart_exist(API_URL, selected_resident, year_month):
-            #     window.hide()
-            #     show_emar_chart(selected_resident, year_month)
-            #     window.un_hide()
-            # else:
-            #     sg.popup("No eMARs Chart Data Found for the Specified Month and Resident")
             if api_functions.does_emar_chart_exist(API_URL, selected_resident, year_month):
                 results = show_loading_window_for_emar(API_URL, selected_resident, year_month)
                 if results == 'token_expired':
@@ -245,7 +239,9 @@ def main(resident_names, user_initials, existing_adl_data, resident_care_levels,
         elif event == '-EDIT_MEDICATION-':
             window.close()
             edit_med_win = emar_management.edit_medication_window(selected_resident)
-            window = create_management_window(resident_names,selected_resident, default_tab_index=1)
+            results = show_loading_window(API_URL, selected_resident)
+            resident_names, user_initials, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data = results
+            window = create_management_window(resident_names,selected_resident, existing_adl_data, resident_care_levels, all_medications_data, active_medications, non_medication_orders, existing_emar_data,default_tab_index=1)
         elif event == '-ADD_NON-MEDICATION-':
             window.close()
             emar_management.add_non_medication_order_window(selected_resident)
